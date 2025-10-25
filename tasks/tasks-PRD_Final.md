@@ -192,7 +192,7 @@
 **Priority:** MEDIUM - Nice-to-have for better UX
 
 - [ ] **3.1** Create embeddings utility
-  - Create `frontend/src/lib/ai/embeddings.ts` (use basic implementation or OpenAI API)
+  - Create `frontend/src/lib/ai/embeddings.ts` (use basic implementation or Google Gemini API)
   - Implement `embedText(text: string): Promise<number[]>`
   - Implement `generateItemEmbeddings(item): Promise<{titleEmbedding, descriptionEmbedding, combinedEmbedding}>`
   - Test: Can generate 1536-dim vector from text
