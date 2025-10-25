@@ -6,8 +6,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-retro);
+  --font-mono: var(--font-retro-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -44,8 +44,8 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  --radius: 0.125rem; /* squarer corners for retro look */
+  --background: oklch(98.341% 0.01178 101.581);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -78,39 +78,7 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
+/* Dark mode disabled: .dark rules removed on purpose */
 
 @layer base {
   * {
@@ -119,4 +87,38 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Use retro sans for headings while body stays mono */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-retro);
+  }
+}
+
+/* Retro helpers */
+.retro-card {
+  position: relative;
+  border: 2px solid var(--border);
+  background: var(--card);
+}
+.retro-shadow {
+  position: relative;
+}
+.retro-shadow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translate(6px, 6px);
+  /* Solid vibrant underlay (no outline) */
+  background: oklch(86.38% 0.1546 86.13); /* magenta-pink */
+  z-index: -1;
+  border-radius: 0; /* no rounding on the colored underlay */
+}
+
+.retro-btn {
+  border: 2px solid var(--foreground);
+  border-radius: 0; /* square */
+  box-shadow: 4px 4px 0 oklch(0.85 0 0 / 1);
+}
+.retro-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 oklch(0.85 0 0 / 1);
 }

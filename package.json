@@ -15,7 +15,11 @@
     "next": "16.0.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "@suiet/wallet-kit": "^0.2.10",
+    "@mysten/sui": "^1.10.0",
+    "@mysten/enoki": "^0.3.0",
+    "@radix-ui/react-dialog": "^1.1.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
