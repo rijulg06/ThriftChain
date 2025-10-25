@@ -4,6 +4,27 @@
 **Generated:** December 2024  
 **Context:** CalHacks 12 Hackathon (48-hour timeline)
 
+## Testing Workflow
+
+**Important:** For each task completed, a testing file will be automatically generated in `tasks/tests/` following the naming convention `[task-number]-testing.md`.
+
+### After Each Task:
+1. ✅ Task implementation is completed
+2. 📋 Testing file is generated in `tasks/tests/`
+3. 🧪 Follow the testing instructions as a human developer
+4. ✅ Verify all success criteria before marking task complete
+5. ➡️ Proceed to next task
+
+### Testing File Format:
+Each testing file includes:
+- Step-by-step verification instructions
+- Expected outputs for each step
+- Success criteria checklist
+- Troubleshooting guide
+- Next steps reference
+
+**Testing files location:** `~/tasks/tests/[task-number]-testing.md`
+
 ## Current State Summary
 
 ### ✅ Existing Infrastructure
@@ -76,14 +97,14 @@
 ## Tasks
 
 - [ ] 1.0 Setup Database and Storage Infrastructure
-  - [ ] 1.1 Install and configure Supabase dependencies (`@supabase/supabase-js`, `@supabase/auth-helpers-nextjs`, `@supabase/realtime-js`)
-  - [ ] 1.2 Create Supabase project and configure environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`)
-  - [ ] 1.3 Create database schema for items, users, transactions, and offers tables in Supabase
-  - [ ] 1.4 Implement Supabase client utilities (`lib/supabase/client.ts` for client-side, `lib/supabase/server.ts` for server-side)
-  - [ ] 1.5 Install and configure Walrus SDK for decentralized storage
-  - [ ] 1.6 Create Walrus client wrapper (`lib/walrus/client.ts`) with image upload functionality
-  - [ ] 1.7 Implement API endpoint for image uploads (`src/app/api/walrus/upload/route.ts`)
-  - [ ] 1.8 Set up real-time subscriptions in Supabase for live updates (negotiations, offers)
+  - [x] 1.1 Install and configure Supabase dependencies (`@supabase/supabase-js`, `@supabase/ssr`, `@supabase/realtime-js`) | Test: `tasks/tests/1.1-testing.md`
+  - [x] 1.2 Create Supabase project and configure environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) | Test: `tasks/tests/1.2-testing.md`
+  - [x] 1.3 Create database schema for items, users, transactions, and offers tables in Supabase | Test: `tasks/tests/1.3-testing.md`
+  - [x] 1.4 Implement Supabase client utilities (`lib/supabase/client.ts` for client-side, `lib/supabase/server.ts` for server-side) | Test: `tasks/tests/1.4-testing.md`
+  - [x] 1.5 Install and configure Walrus SDK for decentralized storage | Test: `tasks/tests/1.5-testing.md`
+  - [x] 1.6 Create Walrus client wrapper (`lib/walrus/client.ts`) with image upload functionality | Test: `tasks/tests/1.6-testing.md`
+  - [ ] 1.7 Implement API endpoint for image uploads (`src/app/api/walrus/upload/route.ts`) | ⏳ Test: `tasks/tests/1.7-testing.md` (to be generated)
+  - [ ] 1.8 Set up real-time subscriptions in Supabase for live updates (negotiations, offers) | ⏳ Test: `tasks/tests/1.8-testing.md` (to be generated)
 
 - [ ] 2.0 Implement Core Item Management System
   - [ ] 2.1 Create TypeScript type definitions (`lib/types/item.ts`) for Item, WalrusBlob, OwnershipRecord
