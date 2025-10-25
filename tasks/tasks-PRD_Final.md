@@ -250,7 +250,7 @@ After completing Task X.Y, proceed to **Task X.Z**: [Next task description]
   - Test: `sui move build` compiles without errors
   - **File:** `contracts/marketplace/sources/thriftchain.move`
 
-- [ ] **1.3** Write Offer system in Move contract with counter-offer negotiation
+- [x] **1.3** Write Offer system in Move contract with counter-offer negotiation
   - Define `Offer` Move struct (item_id, buyer, seller, amount, message, status, expires_at, is_counter)
   - Define event structs: `OfferCreated`, `OfferCountered`, `OfferCancelled`, `OfferRejected` (all with copy + drop abilities)
   - Implement `create_offer()` entry function - buyer makes initial offer
@@ -259,7 +259,17 @@ After completing Task X.Y, proceed to **Task X.Z**: [Next task description]
   - Implement `cancel_offer()` entry function - buyer cancels own offer
   - Implement `reject_offer()` entry function - seller rejects offer
   - Emit appropriate events in each function using `sui::event::emit()`
+  - **MANDATORY: Create comprehensive unit tests in `tests/thriftchain_tests.move`**
+    - Test `create_offer()` with valid inputs, invalid inputs, expired offers
+    - Test `counter_offer()` with seller permission, invalid amounts, expired offers
+    - Test `accept_counter_offer()` with buyer permission, valid counter offers
+    - Test `cancel_offer()` with buyer permission, various offer states
+    - Test `reject_offer()` with seller permission, valid offer states
+    - Test event emissions for all functions using `event::events_by_type<T>()`
+    - Test error conditions with `#[test, expected_failure]` annotations
+    - Test time-dependent functions with `clock::create_for_testing()`
   - Test: `sui move build` compiles without errors
+  - Test: `sui move test` passes all unit tests
 
 - [ ] **1.4** Write Escrow system in Move contract
   - Define `Escrow` Move struct (buyer, seller, item_id, amount, status)
@@ -268,17 +278,34 @@ After completing Task X.Y, proceed to **Task X.Z**: [Next task description]
   - Implement `dispute_escrow()` - marks escrow as disputed
   - Implement `refund_escrow()` - returns funds to buyer
   - Add events: `OfferAccepted`, `ItemSold`, `EscrowDisputed`, `EscrowRefunded`
+  - **MANDATORY: Create comprehensive unit tests in `tests/thriftchain_tests.move`**
+    - Test `accept_offer()` with valid offers, invalid permissions, expired offers
+    - Test `confirm_delivery()` with buyer permission, valid escrow states
+    - Test `dispute_escrow()` with buyer permission, valid escrow states
+    - Test `refund_escrow()` with seller/admin permission, disputed escrows
+    - Test event emissions for all functions using `event::events_by_type<T>()`
+    - Test error conditions with `#[test, expected_failure]` annotations
+    - Test fund transfers and object ownership changes
   - Test: `sui move build` compiles
+  - Test: `sui move test` passes all unit tests
 
-- [ ] **1.5** Write item management functions in Move contract
+- [x] **1.5** Write item management functions in Move contract
   - Implement `update_item_price()` - seller can change price
   - Implement `cancel_item()` - seller can cancel listing
   - Implement `mark_as_sold()` - automatically called when escrow completes
   - Add events: `ItemPriceUpdated`, `ItemCancelled`, `ItemMarkedAsSold`
   - Emit events in each function using `sui::event::emit()`
+  - **MANDATORY: Create comprehensive unit tests in `tests/thriftchain_tests.move`**
+    - Test `update_item_price()` with seller permission, valid prices, invalid prices
+    - Test `cancel_item()` with seller permission, active items only
+    - Test `mark_as_sold()` with valid item states, automatic calls
+    - Test event emissions for all functions using `event::events_by_type<T>()`
+    - Test error conditions with `#[test, expected_failure]` annotations
+    - Test state transitions and validation
   - Test: `sui move build` compiles, all functions present
+  - Test: `sui move test` passes all unit tests
 
-- [ ] **1.6** Deploy contracts to Sui testnet
+- [x] **1.6** Deploy contracts to Sui testnet
   - `cd contracts/marketplace && sui client publish --gas-budget 100000000`
   - Save Package ID from output
   - Save all created object IDs

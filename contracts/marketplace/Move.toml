@@ -5,7 +5,7 @@ edition = "2024"
 published-at = ""
 
 [addresses]
-thriftchain = "_"
+thriftchain = "0x0"
 
 [dev-addresses]
 thriftchain = "0x0"
