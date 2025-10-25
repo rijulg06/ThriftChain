@@ -2,7 +2,7 @@
 
 **Based on:** PRD_Final.md (Updated for Decentralized Architecture)
 **Generated:** December 2024
-**Context:** CalHacks 12 Hackathon (48-hour timeline)
+**Context:** CalHacks 12 Hackathon (14-hour sprint timeline)
 
 ## 🎯 ARCHITECTURE PRINCIPLES
 
@@ -464,37 +464,35 @@
 Phase 0 (Blockers) → Phase 1 (Smart Contracts) → Phase 2.1-2.7 (Item Listing) → Phase 4.1-4.10 (Offers & Escrow)
 ```
 
-**Minimum Viable Demo:**
+**Minimum Viable Demo (14-hour version):**
 1. User can list item (upload to Walrus, mint NFT on Sui)
 2. Another user can browse items (query blockchain)
 3. User can make offer (create on-chain Offer)
-4. **NEW:** Seller can counter offer with new price
-5. **NEW:** Buyer can accept counter offer
-6. **NEW:** Real-time negotiation updates via Sui events
-7. Seller can accept offer (create on-chain Escrow)
-8. Buyer can confirm delivery (release escrow, transfer item)
+4. Seller can accept offer (create on-chain Escrow)
+5. Buyer can confirm delivery (release escrow, transfer item)
 
-**AI Search (Phase 3) is optional** - can demo without it if time runs out.
+**SIMPLIFIED FOR 14 HOURS:**
+- ❌ Skip counter-offers (too complex!)
+- ❌ Skip disputes & refunds (not critical)
+- ❌ Skip real-time events (use polling or manual refresh)
+- ✅ Focus: List → Browse → Offer → Accept → Confirm
 
-**Counter-offer negotiation demonstrates:**
-- Blockchain-native messaging (no centralized chat)
-- Event-driven real-time updates
-- Trust-minimized peer-to-peer negotiation
+**AI Search (Phase 3) is OPTIONAL** - skip entirely if behind schedule!
 
 ---
 
-## ⏱️ TIME ESTIMATES (48-hour hackathon)
+## ⏱️ TIME ESTIMATES (14-hour sprint)
 
-- Phase 0: 1-2 hours
-- Phase 1: 10-14 hours (smart contracts + events + counter-offers are complex!)
-- Phase 2: 8-10 hours
-- Phase 3: 6-8 hours (optional)
-- Phase 4: 8-10 hours (includes event subscriptions + counter-offer UI)
-- Phase 5: 2-4 hours (optional)
+- Phase 0: 0.5 hours (do together quickly)
+- Phase 1: 4-5 hours (smart contracts - Dev 1 focus)
+- Phase 2: 3-4 hours (UI with mocks - Dev 2 parallel)
+- Phase 3: 2-3 hours (AI search - Dev 3 parallel, OPTIONAL)
+- Phase 4: 3-4 hours (offers & escrow - all devs together)
+- Phase 5: 1 hour (critical polish only)
 
-**Total Core (0+1+2+4): 27-36 hours** - Leaves 12-21 hours for debugging, testing, demo prep.
+**Total Core (0+1+2+4): 11-14 hours** - Tight but achievable with parallel work!
 
-**Note:** Event-driven negotiation adds ~2-3 hours to Phases 1 & 4, but significantly enhances demo value by showcasing blockchain-native real-time communication.
+**Note:** Phase 3 (AI Search) is OPTIONAL - skip if behind schedule. Focus on blockchain + UI first.
 
 ---
 
@@ -511,4 +509,279 @@ Phase 0 (Blockers) → Phase 1 (Smart Contracts) → Phase 2.1-2.7 (Item Listing
 
 ---
 
-_Last Updated: After adding Sui event-driven counter-offer negotiation system_
+## 👥 TEAM ASSIGNMENT (3 Developers)
+
+### **DEV 1: Blockchain Engineer** 🔗
+**Responsibilities:** Smart Contracts (Phase 1)
+**Skills Required:** Move/Rust, blockchain architecture
+**Timeline:** Hours 0-5 (includes deployment)
+
+**Tasks:**
+- [ ] 1.1 - Create Move contract directory structure
+- [ ] 1.2 - Write ThriftItem struct & create_item function
+- [ ] 1.3 - Write Offer system with counter-offer negotiation (COMPLEX!)
+- [ ] 1.4 - Write Escrow system
+- [ ] 1.5 - Write item management functions
+- [ ] 1.6 - **🔥 DEPLOY to testnet** (Critical milestone at Hour 5!)
+- [ ] 1.7 - Share package ID with team
+- [ ] 1.8 - Test with CLI
+
+**After deployment:** Help Dev 2 integrate transactions, pair on Phase 4
+
+---
+
+### **DEV 2: Frontend Engineer** 🎨
+**Responsibilities:** Item Listing Flow (Phase 2)
+**Skills Required:** React/Next.js, UI/UX, TypeScript
+**Timeline:** Hours 0-9 (can start immediately with mocks)
+
+**Tasks:**
+- [ ] 2.1 - Create TypeScript API types
+- [ ] 2.2 - **Build Walrus upload API** (can test independently!)
+- [ ] 2.3 - Build ItemForm component (mock blockchain initially)
+- [ ] 2.4 - Create /list-item page
+- [ ] 2.5 - Build ItemCard component
+- [ ] 2.6 - Create /listings page (mock data initially)
+- [ ] 2.7 - Create /items/[id] detail page
+- [ ] **Integration Point (Hour 5):** Swap mocks for real blockchain calls after Dev 1 deploys
+
+**After Phase 2:** Lead Phase 4 UI (offers, escrow, modals)
+
+---
+
+### **DEV 3: Full-Stack Engineer** 🤖
+**Responsibilities:** AI Search Layer (Phase 3) - OPTIONAL
+**Skills Required:** Supabase, ML/embeddings, API development
+**Timeline:** Hours 0-8 (works independently, can skip if behind)
+
+**Tasks:**
+- [ ] 3.1 - Create embeddings utility (OpenAI or local)
+- [ ] 3.2 - Create indexing API route
+- [ ] 3.4 - Create semantic search API route
+- [ ] 3.5 - **Coordinate with Dev 2:** Integrate search into /listings
+- [ ] **IF TIME IS SHORT:** Skip Phase 3, help Dev 2 with UI components instead
+- [ ] *(Skip 3.6-3.8 recommendations - not critical)*
+
+**After Phase 3 (or if skipped):** Build real-time event hooks for Phase 4 (useOfferEvents, useTransactionEvents)
+
+---
+
+## 🔄 INTEGRATION TIMELINE
+
+### **Hour 0-1: Setup Phase (All devs together)**
+```bash
+# All devs work together on Phase 0 - FAST!
+✅ Create .env.local (0.1) - 10 min
+✅ Deploy Supabase schema (0.2) - 10 min
+✅ Configure Sui CLI (0.3) - 10 min
+
+# Then split into parallel tracks immediately
+```
+
+### **Hour 1-5: Parallel Development (CRITICAL)**
+```
+DEV 1: Writing Move contracts FAST (1.2-1.5)
+  ├─ ThriftItem struct (30 min)
+  ├─ Offer system - SIMPLIFY! (90 min)
+  └─ Escrow system (60 min)
+  └─ Deploy immediately! (30 min)
+
+DEV 2: Building UI with mocked blockchain
+  ├─ Walrus API (can test now!)
+  ├─ ItemForm, ItemCard components
+  └─ /list-item, /listings pages
+
+DEV 3: Building AI search OR helping Dev 2
+  ├─ Embeddings utility (if time)
+  ├─ OR help Dev 2 with UI components
+  └─ Decision: Skip AI if Dev 2 needs help!
+```
+
+### **Hour 5: 🔥 CRITICAL MILESTONE - Contract Deployment**
+```bash
+# Dev 1 deploys and shares:
+NEXT_PUBLIC_THRIFTCHAIN_PACKAGE_ID=0x...
+
+# Dev 2 immediately swaps mocks for real calls
+# Dev 3 decides: Continue AI or help with Phase 4?
+```
+
+### **Hour 5-9: Integration & Testing**
+```
+DEV 1: Helps Dev 2 debug blockchain integration
+DEV 2: Tests end-to-end item listing flow
+DEV 3: If AI done: integrate. If not: skip, help with UI
+```
+
+### **Hour 9-13: Phase 4 - ALL HANDS ON DECK**
+```
+All 3 devs collaborate on Offers & Escrow:
+
+DEV 1: Transaction builders, contract integration
+DEV 2: OffersList UI, modals, forms
+DEV 3: Event subscriptions OR basic offer UI
+
+SIMPLIFY: Skip counter-offers if behind!
+         Just do: create offer → accept → escrow → confirm
+```
+
+### **Hour 13-14: Critical Polish & Demo**
+```
+Phase 5 (MINIMAL): 
+- Fix blocking bugs only
+- Add ONE loading spinner
+- Test full flow once more
+- 10-min demo script practice
+```
+
+---
+
+## 🚨 CRITICAL DEPENDENCIES
+
+```mermaid
+graph TD
+    P0[Phase 0: Setup] --> P1[Phase 1: Smart Contracts]
+    P0 --> P2[Phase 2: Frontend UI]
+    P0 --> P3[Phase 3: AI Search]
+    
+    P1 -->|Deploy at Hour 14| P2I[Phase 2 Integration]
+    P2I --> P4[Phase 4: Offers & Escrow]
+    P1 --> P4
+    P2 --> P4
+    P3 -->|Optional| P2
+    
+    P4 --> P5[Phase 5: Polish]
+```
+
+**Key insight:** Dev 2 and Dev 3 can work 90% independently while Dev 1 builds the foundation!
+
+---
+
+## 📋 HANDOFF CHECKLIST
+
+### **From Dev 1 → Team (after deployment at Hour 5)**
+```bash
+# Post in #deploy-alerts immediately:
+🚀 CONTRACTS DEPLOYED!
+✅ NEXT_PUBLIC_THRIFTCHAIN_PACKAGE_ID=0x...
+✅ Sui Explorer: https://suiexplorer.com/?network=testnet&...
+✅ Tested: create_item works via CLI
+
+@Dev2 - Ready for you to swap mocks!
+```
+
+### **From Dev 3 → Team (at Hour 3 - DECISION POINT)**
+```typescript
+// Dev 3 posts in #team-chat:
+"AI search: embeddings working, but search API will take 2 more hours.
+ Should I continue or help with UI/Phase 4 instead?"
+
+// Team decides based on progress:
+- If Dev 2 ahead: Continue AI
+- If Dev 2 behind: STOP AI, help with UI
+```
+
+### **From Dev 2 → Dev 1 (for integration at Hour 5)**
+```typescript
+// Post in #code-review:
+"Ready to integrate! These 3 functions need real blockchain:
+⚠️ ItemForm.tsx - line 45 (buildCreateItemTransaction)
+⚠️ listings/page.tsx - line 12 (getAllItems query)
+⚠️ items/[id]/page.tsx - line 8 (getItemById query)
+
+Can you pair for 20 min to wire these up?"
+```
+
+---
+
+## ⚠️ RISK MITIGATION
+
+**If Dev 1 is blocked/delayed:**
+- ✅ Dev 2 continues with full UI using mocks
+- ✅ Dev 3 helps Dev 2 with UI components immediately
+- ✅ Can still demo UI flow (without blockchain)
+- ⏰ **CRITICAL:** Dev 1 MUST deploy by Hour 6 max, or skip escrow features
+
+**If Dev 2 is blocked:**
+- ✅ Dev 1 helps with UI after contract deployment (Hour 5)
+- ✅ Dev 3 takes UI tasks immediately
+- ⏰ **CRITICAL:** Basic UI must work by Hour 9
+
+**If Dev 3 is blocked:**
+- ✅ Skip AI search entirely (it's optional!)
+- ✅ Dev 3 helps Dev 2 with UI from Hour 0
+- ✅ Focus 100% on blockchain + basic UI
+
+**If whole team is behind schedule at Hour 7:**
+- 🚨 **SIMPLIFY PHASE 4:** Skip counter-offers, skip disputes
+- 🚨 **MVP ONLY:** Create item → Make offer → Accept → Confirm delivery
+- 🚨 Skip all of Phase 3 (AI search)
+
+---
+
+## 🎯 SUCCESS CRITERIA BY ROLE
+
+### **Dev 1 (Blockchain) - Must Have:**
+- ✅ Contracts compile without errors (`sui move build`)
+- ✅ Contracts deployed to testnet successfully
+- ✅ Can create item via Sui CLI
+- ✅ Can make offer via Sui CLI
+- ✅ Package ID shared with team in `.env.local`
+
+### **Dev 2 (Frontend) - Must Have:**
+- ✅ Can navigate full UI flow (home → list-item → listings → item detail)
+- ✅ Walrus image upload works end-to-end
+- ✅ Forms validate and submit properly
+- ✅ Item cards render with images from Walrus
+- ✅ Mobile responsive (test on phone)
+
+### **Dev 3 (AI Search) - Nice to Have (SKIP IF BEHIND!):**
+- ✅ Embeddings generate correctly (1536-dim vectors)
+- ✅ Search returns relevant results (test with "vintage jacket")
+- ✅ Search bar integrated into /listings page
+- ❌ ~~Recommendations~~ (skip this!)
+
+**IMPORTANT:** At Hour 3, Dev 3 should reassess and potentially pivot to helping with UI/Phase 4 instead!
+
+---
+
+## 💬 COMMUNICATION PROTOCOL
+
+### **Micro-Standups (Every 2-3 hours)**
+**Quick 2-minute check-ins:**
+
+**Dev 1 Reports:**
+- Contract progress: "Finished ThriftItem, starting Offers"
+- Blockers: "Stuck on escrow logic - need 10 min pair"
+- ETA for deployment: "Deploying in 1 hour"
+
+**Dev 2 Reports:**
+- UI components done: "ItemForm done, ItemCard next"
+- Ready for blockchain: "Can swap mocks in 5 min once deployed"
+- Blockers: "Walrus upload slow - acceptable for now"
+
+**Dev 3 Reports:**
+- Status: "AI search 50% done, can finish or help UI?"
+- Decision point: "Should I continue or pivot to help?"
+- Available: "Can pair with anyone for next 2 hours"
+
+### **Communication Channels**
+```
+#team-chat     - All updates, blockers, celebrations 🎉
+#code-review   - Quick PR reviews, "does this look right?"
+#deploy-alerts - Contract deployed! Package ID posted here!
+```
+
+### **Shared Documentation (Keep it SIMPLE)**
+- **contract-info.txt** - Just package ID and critical object IDs
+- **SKIP api-endpoints.md** - Just Slack it when ready
+- **SKIP mock-data.ts** - Inline in code is fine
+
+### **Decision-Making (FAST!)**
+- 🚨 **If stuck >15 min:** Ask for help immediately!
+- 🚨 **If behind schedule:** Pair program, don't solo debug
+- 🚨 **If feature too complex:** CUT IT! Ship simpler version
+
+---
+
+_Last Updated: After adjusting for 14-hour sprint timeline with simplified MVP scope_
