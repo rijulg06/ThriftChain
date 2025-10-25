@@ -1,234 +1,211 @@
--- ThriftChain Database Schema
+-- ThriftChain Minimal Database Schema (AI Search Layer ONLY)
+--
+-- ARCHITECTURE PRINCIPLE:
+-- Supabase is used ONLY for AI-powered search and recommendations.
+-- ALL marketplace data (items, offers, transactions) lives on Sui blockchain.
+-- This schema contains only vector embeddings and search indexes.
+--
 -- Run this in Supabase SQL Editor after creating your project
 
--- Enable UUID extension
+-- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "vector";  -- For pgvector support
 
 -- ============================================
--- USERS TABLE
+-- ITEM SEARCH INDEX (AI-POWERED SEARCH)
 -- ============================================
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    wallet_address TEXT UNIQUE NOT NULL,
-    username TEXT,
-    avatar_url TEXT,
-    bio TEXT,
-    preferences JSONB DEFAULT '{}'::jsonb,  -- User preferences for AI recommendations
-    reputation_score INTEGER DEFAULT 100,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- This table indexes on-chain items for semantic search
+-- It's a READ-OPTIMIZED CACHE that syncs from Sui blockchain
 
--- Index for fast lookups by wallet address
-CREATE INDEX idx_users_wallet_address ON users(wallet_address);
+CREATE TABLE IF NOT EXISTS item_search_index (
+    -- Primary key is the Sui object ID (source of truth on blockchain)
+    sui_object_id TEXT PRIMARY KEY,
 
--- ============================================
--- ITEMS TABLE
--- ============================================
-CREATE TABLE IF NOT EXISTS items (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nft_id TEXT,  -- Sui NFT object ID
-    seller_wallet TEXT NOT NULL,
+    -- Vector embeddings for semantic search
+    title_embedding VECTOR(1536),         -- OpenAI embedding dimension
+    description_embedding VECTOR(1536),   -- For semantic similarity
+    combined_embedding VECTOR(1536),      -- Title + description + tags
+
+    -- Cached fields for fast filtering (synced from blockchain)
     title TEXT NOT NULL,
-    description TEXT NOT NULL,
-    price BIGINT NOT NULL,  -- Price in smallest SUI unit (MIST)
-    currency TEXT DEFAULT 'SUI' CHECK (currency IN ('SUI', 'USDC')),
-    category TEXT NOT NULL,
+    description TEXT,
+    category TEXT,
     tags TEXT[] DEFAULT '{}',
-    is_for_trade BOOLEAN DEFAULT false,
-    trade_preferences TEXT[] DEFAULT '{}',
-    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'sold', 'cancelled', 'pending')),
-    
-    -- Walrus storage references
-    images JSONB DEFAULT '[]'::jsonb,  -- Array of WalrusBlob references
-    
+    price_mist BIGINT,                    -- Price in MIST (smallest SUI unit)
+    seller_address TEXT,
+    status TEXT DEFAULT 'active',         -- active, sold, cancelled
+
+    -- Walrus image references (stored on-chain, cached here)
+    walrus_blob_ids TEXT[] DEFAULT '{}',
+
+    -- Metadata for search optimization
+    search_rank FLOAT DEFAULT 0.0,        -- Calculated ranking score
+    view_count INTEGER DEFAULT 0,         -- Cached from on-chain events
+
+    -- Sync tracking
+    last_indexed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    blockchain_created_at TIMESTAMP WITH TIME ZONE,
+
+    -- Indexes for fast lookups
+    CONSTRAINT valid_status CHECK (status IN ('active', 'sold', 'cancelled'))
+);
+
+-- Indexes for vector similarity search
+CREATE INDEX idx_title_embedding ON item_search_index
+    USING ivfflat (title_embedding vector_cosine_ops);
+
+CREATE INDEX idx_description_embedding ON item_search_index
+    USING ivfflat (description_embedding vector_cosine_ops);
+
+CREATE INDEX idx_combined_embedding ON item_search_index
+    USING ivfflat (combined_embedding vector_cosine_ops);
+
+-- Indexes for filtering
+CREATE INDEX idx_item_category ON item_search_index(category);
+CREATE INDEX idx_item_status ON item_search_index(status);
+CREATE INDEX idx_item_tags ON item_search_index USING GIN(tags);
+CREATE INDEX idx_item_price ON item_search_index(price_mist);
+CREATE INDEX idx_item_seller ON item_search_index(seller_address);
+
+-- ============================================
+-- USER AI PREFERENCES (RECOMMENDATION ENGINE)
+-- ============================================
+-- Stores user taste profiles for personalized recommendations
+-- This is the ONLY user data not on blockchain (privacy preference)
+
+CREATE TABLE IF NOT EXISTS user_ai_preferences (
+    wallet_address TEXT PRIMARY KEY,
+
+    -- User taste profile (learned from interactions)
+    preference_vector VECTOR(1536),       -- Aggregated preference embedding
+
+    -- Interaction history for collaborative filtering
+    viewed_items JSONB DEFAULT '[]'::jsonb,           -- Array of {sui_object_id, timestamp, duration}
+    liked_items TEXT[] DEFAULT '{}',                  -- Array of sui_object_ids
+    disliked_items TEXT[] DEFAULT '{}',               -- Array of sui_object_ids
+    purchased_items TEXT[] DEFAULT '{}',              -- Array of sui_object_ids
+
+    -- Category preferences (learned)
+    preferred_categories JSONB DEFAULT '{}'::jsonb,   -- {category: weight}
+    preferred_price_range JSONB DEFAULT '{}'::jsonb,  -- {min: number, max: number}
+
     -- Metadata
-    views_count INTEGER DEFAULT 0,
-    bids_count INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    sold_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Foreign key to users
-    FOREIGN KEY (seller_wallet) REFERENCES users(wallet_address) ON DELETE CASCADE
+    last_interaction_at TIMESTAMP WITH TIME ZONE
 );
 
--- Indexes for filtering and search
-CREATE INDEX idx_items_seller ON items(seller_wallet);
-CREATE INDEX idx_items_status ON items(status);
-CREATE INDEX idx_items_category ON items(category);
-CREATE INDEX idx_items_created_at ON items(created_at DESC);
-CREATE INDEX idx_items_price ON items(price);
-CREATE INDEX idx_items_tags ON items USING GIN(tags);  -- GIN index for array search
+-- Index for preference vector similarity
+CREATE INDEX idx_preference_vector ON user_ai_preferences
+    USING ivfflat (preference_vector vector_cosine_ops);
 
 -- ============================================
--- OFFERS TABLE
+-- SEARCH CACHE (OPTIONAL - PERFORMANCE)
 -- ============================================
-CREATE TABLE IF NOT EXISTS offers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    item_id UUID NOT NULL,
-    buyer_wallet TEXT NOT NULL,
-    seller_wallet TEXT NOT NULL,
-    amount BIGINT NOT NULL,
-    currency TEXT DEFAULT 'SUI',
-    message TEXT,
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled', 'expired')),
-    expires_at TIMESTAMP WITH TIME ZONE,
+-- Temporary cache for frequently searched queries
+-- Expires after 1 hour to ensure freshness
+
+CREATE TABLE IF NOT EXISTS search_cache (
+    query_hash TEXT PRIMARY KEY,          -- Hash of search query
+    query_text TEXT NOT NULL,
+    sui_object_ids TEXT[] DEFAULT '{}',   -- Array of matching object IDs
+    result_count INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
-    FOREIGN KEY (buyer_wallet) REFERENCES users(wallet_address) ON DELETE CASCADE,
-    FOREIGN KEY (seller_wallet) REFERENCES users(wallet_address) ON DELETE CASCADE
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() + INTERVAL '1 hour'
 );
 
--- Indexes for offer queries
-CREATE INDEX idx_offers_item ON offers(item_id);
-CREATE INDEX idx_offers_buyer ON offers(buyer_wallet);
-CREATE INDEX idx_offers_seller ON offers(seller_wallet);
-CREATE INDEX idx_offers_status ON offers(status);
+-- Index for cleanup of expired cache
+CREATE INDEX idx_search_cache_expires ON search_cache(expires_at);
 
 -- ============================================
--- TRANSACTIONS TABLE
--- ============================================
-CREATE TABLE IF NOT EXISTS transactions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    item_id UUID NOT NULL,
-    buyer_wallet TEXT NOT NULL,
-    seller_wallet TEXT NOT NULL,
-    amount BIGINT NOT NULL,
-    currency TEXT DEFAULT 'SUI',
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'disputed', 'completed', 'refunded')),
-    
-    -- Escrow information
-    escrow_address TEXT,
-    transaction_hash TEXT,  -- Sui transaction hash
-    
-    -- Timestamps
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    confirmed_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    
-    FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
-    FOREIGN KEY (buyer_wallet) REFERENCES users(wallet_address) ON DELETE CASCADE,
-    FOREIGN KEY (seller_wallet) REFERENCES users(wallet_address) ON DELETE CASCADE
-);
-
--- Indexes for transaction queries
-CREATE INDEX idx_transactions_item ON transactions(item_id);
-CREATE INDEX idx_transactions_buyer ON transactions(buyer_wallet);
-CREATE INDEX idx_transactions_seller ON transactions(seller_wallet);
-CREATE INDEX idx_transactions_status ON transactions(status);
-CREATE INDEX idx_transactions_hash ON transactions(transaction_hash);
-
--- ============================================
--- OWNERSHIP HISTORY TABLE
--- ============================================
-CREATE TABLE IF NOT EXISTS ownership_history (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    item_id UUID NOT NULL,
-    owner_wallet TEXT NOT NULL,
-    transaction_id UUID,
-    price BIGINT,  -- Price at which it was bought
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
-    FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
-);
-
--- Index for ownership history queries
-CREATE INDEX idx_ownership_item ON ownership_history(item_id);
-CREATE INDEX idx_ownership_owner ON ownership_history(owner_wallet);
-
--- ============================================
--- WALRUS BLOBS TABLE
--- ============================================
-CREATE TABLE IF NOT EXISTS walrus_blobs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    blob_id TEXT UNIQUE NOT NULL,  -- Walrus blob identifier
-    url TEXT NOT NULL,  -- Public access URL
-    size INTEGER NOT NULL,  -- File size in bytes
-    mime_type TEXT NOT NULL,
-    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    uploaded_by TEXT,  -- Wallet address of uploader
-    
-    FOREIGN KEY (uploaded_by) REFERENCES users(wallet_address) ON DELETE SET NULL
-);
-
--- Index for blob lookups
-CREATE INDEX idx_walrus_blobs_id ON walrus_blobs(blob_id);
-
--- ============================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- FUNCTIONS FOR VECTOR SEARCH
 -- ============================================
 
--- Enable RLS on all tables
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE offers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ownership_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE walrus_blobs ENABLE ROW LEVEL SECURITY;
+-- Function to search items by semantic similarity
+CREATE OR REPLACE FUNCTION search_items_by_embedding(
+    query_embedding VECTOR(1536),
+    match_threshold FLOAT DEFAULT 0.7,
+    match_count INT DEFAULT 20,
+    filter_category TEXT DEFAULT NULL,
+    filter_status TEXT DEFAULT 'active'
+)
+RETURNS TABLE (
+    sui_object_id TEXT,
+    title TEXT,
+    description TEXT,
+    similarity FLOAT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        i.sui_object_id,
+        i.title,
+        i.description,
+        1 - (i.combined_embedding <=> query_embedding) AS similarity
+    FROM item_search_index i
+    WHERE
+        (filter_category IS NULL OR i.category = filter_category)
+        AND i.status = filter_status
+        AND 1 - (i.combined_embedding <=> query_embedding) > match_threshold
+    ORDER BY i.combined_embedding <=> query_embedding
+    LIMIT match_count;
+END;
+$$ LANGUAGE plpgsql;
 
--- Users: Anyone can read, only the owner can update
-CREATE POLICY "Users are viewable by everyone" ON users
-    FOR SELECT USING (true);
+-- Function to get recommendations for a user
+CREATE OR REPLACE FUNCTION get_user_recommendations(
+    user_wallet TEXT,
+    recommendation_count INT DEFAULT 10
+)
+RETURNS TABLE (
+    sui_object_id TEXT,
+    title TEXT,
+    similarity FLOAT
+) AS $$
+DECLARE
+    user_pref_vector VECTOR(1536);
+BEGIN
+    -- Get user's preference vector
+    SELECT preference_vector INTO user_pref_vector
+    FROM user_ai_preferences
+    WHERE wallet_address = user_wallet;
 
-CREATE POLICY "Users can update their own profile" ON users
-    FOR UPDATE USING (auth.jwt() ->> 'wallet_address' = wallet_address);
-
--- Items: Anyone can read active items
-CREATE POLICY "Items are viewable by everyone" ON items
-    FOR SELECT USING (status = 'active');
-
-CREATE POLICY "Sellers can insert their own items" ON items
-    FOR INSERT WITH CHECK (auth.jwt() ->> 'wallet_address' = seller_wallet);
-
-CREATE POLICY "Sellers can update their own items" ON items
-    FOR UPDATE USING (auth.jwt() ->> 'wallet_address' = seller_wallet);
-
--- Offers: Can be viewed by buyer and seller
-CREATE POLICY "Offers are viewable by participants" ON offers
-    FOR SELECT USING (
-        auth.jwt() ->> 'wallet_address' = buyer_wallet OR
-        auth.jwt() ->> 'wallet_address' = seller_wallet
-    );
-
-CREATE POLICY "Anyone can create offers" ON offers
-    FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Offers can be updated by participants" ON offers
-    FOR UPDATE USING (
-        auth.jwt() ->> 'wallet_address' = buyer_wallet OR
-        auth.jwt() ->> 'wallet_address' = seller_wallet
-    );
-
--- Transactions: Can be viewed by buyer and seller
-CREATE POLICY "Transactions are viewable by participants" ON transactions
-    FOR SELECT USING (
-        auth.jwt() ->> 'wallet_address' = buyer_wallet OR
-        auth.jwt() ->> 'wallet_address' = seller_wallet
-    );
-
-CREATE POLICY "Anyone can create transactions" ON transactions
-    FOR INSERT WITH CHECK (true);
-
--- Ownership history: Anyone can read
-CREATE POLICY "Ownership history is viewable by everyone" ON ownership_history
-    FOR SELECT USING (true);
-
--- Walrus blobs: Anyone can read
-CREATE POLICY "Walrus blobs are viewable by everyone" ON walrus_blobs
-    FOR SELECT USING (true);
-
-CREATE POLICY "Anyone can upload blobs" ON walrus_blobs
-    FOR INSERT WITH CHECK (true);
+    -- If user has no preferences yet, return trending items
+    IF user_pref_vector IS NULL THEN
+        RETURN QUERY
+        SELECT
+            i.sui_object_id,
+            i.title,
+            0.0 AS similarity
+        FROM item_search_index i
+        WHERE i.status = 'active'
+        ORDER BY i.view_count DESC, i.last_indexed_at DESC
+        LIMIT recommendation_count;
+    ELSE
+        -- Return items similar to user preferences
+        RETURN QUERY
+        SELECT
+            i.sui_object_id,
+            i.title,
+            1 - (i.combined_embedding <=> user_pref_vector) AS similarity
+        FROM item_search_index i
+        WHERE
+            i.status = 'active'
+            -- Exclude items user already interacted with
+            AND i.sui_object_id NOT IN (
+                SELECT unnest(viewed_items::text[]) FROM user_ai_preferences WHERE wallet_address = user_wallet
+            )
+        ORDER BY i.combined_embedding <=> user_pref_vector
+        LIMIT recommendation_count;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ============================================
--- FUNCTIONS & TRIGGERS
+-- TRIGGERS FOR AUTOMATIC UPDATES
 -- ============================================
 
--- Function to update updated_at timestamp
+-- Auto-update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -237,39 +214,113 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Apply updated_at trigger to relevant tables
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_preferences_updated_at
+    BEFORE UPDATE ON user_ai_preferences
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_items_updated_at BEFORE UPDATE ON items
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_offers_updated_at BEFORE UPDATE ON offers
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Function to increment item views
-CREATE OR REPLACE FUNCTION increment_item_views()
+-- Auto-cleanup expired search cache
+CREATE OR REPLACE FUNCTION cleanup_expired_cache()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE items SET views_count = views_count + 1 WHERE id = NEW.item_id;
+    DELETE FROM search_cache WHERE expires_at < NOW();
     RETURN NEW;
 END;
 $$ language 'plpgsql';
 
 -- ============================================
--- SAMPLE DATA (Optional - for testing)
+-- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================
 
--- Insert a test user
--- INSERT INTO users (wallet_address, username, bio) 
--- VALUES ('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'testuser', 'Test user for development');
+-- Enable RLS on all tables
+ALTER TABLE item_search_index ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_ai_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE search_cache ENABLE ROW LEVEL SECURITY;
+
+-- Item search index: Public read access (it's a search index)
+CREATE POLICY "Item search index is viewable by everyone"
+    ON item_search_index FOR SELECT USING (true);
+
+-- Only backend services can insert/update search index
+CREATE POLICY "Only service role can modify search index"
+    ON item_search_index FOR ALL
+    USING (auth.jwt() ->> 'role' = 'service_role');
+
+-- User preferences: Users can only see/modify their own
+CREATE POLICY "Users can view their own preferences"
+    ON user_ai_preferences FOR SELECT
+    USING (auth.jwt() ->> 'wallet_address' = wallet_address);
+
+CREATE POLICY "Users can update their own preferences"
+    ON user_ai_preferences FOR UPDATE
+    USING (auth.jwt() ->> 'wallet_address' = wallet_address);
+
+CREATE POLICY "Users can insert their own preferences"
+    ON user_ai_preferences FOR INSERT
+    WITH CHECK (auth.jwt() ->> 'wallet_address' = wallet_address);
+
+-- Search cache: Public read access
+CREATE POLICY "Search cache is viewable by everyone"
+    ON search_cache FOR SELECT USING (true);
+
+CREATE POLICY "Anyone can insert to search cache"
+    ON search_cache FOR INSERT WITH CHECK (true);
 
 -- ============================================
--- NOTES
+-- NOTES FOR DEVELOPERS
 -- ============================================
--- 1. All timestamps use TIMESTAMP WITH TIME ZONE for proper timezone handling
--- 2. Prices are stored in MIST (smallest SUI unit, like wei in Ethereum)
--- 3. Images are stored as JSONB arrays with Walrus blob references
--- 4. Tags are stored as PostgreSQL arrays for efficient searching
--- 5. RLS policies provide security at the database level
--- 6. Foreign keys ensure referential integrity
+--
+-- IMPORTANT REMINDERS:
+--
+-- 1. SOURCE OF TRUTH: Sui blockchain stores all marketplace data
+--    - This database is a CACHE for search performance only
+--    - Always verify data by reading from Sui when displaying details
+--
+-- 2. INDEXING FLOW:
+--    - User mints item NFT on Sui → Event emitted
+--    - Backend listens to events → Generates embeddings
+--    - Inserts into item_search_index for searchability
+--
+-- 3. SEARCH FLOW:
+--    - User searches → Generate query embedding
+--    - Query item_search_index → Get sui_object_ids
+--    - Fetch full item data from Sui blockchain
+--
+-- 4. VECTOR DIMENSIONS:
+--    - Using 1536 dimensions (OpenAI text-embedding-ada-002)
+--    - Change this if using different embedding model
+--
+-- 5. PERFORMANCE:
+--    - IVFFlat indexes require periodic VACUUM and ANALYZE
+--    - Consider HNSW indexes for better performance at scale
+--
+-- 6. SYNC STRATEGY:
+--    - Periodically resync from blockchain to catch any missed events
+--    - Check last_indexed_at to find stale entries
+--
+-- ============================================
+-- SAMPLE USAGE EXAMPLES
+-- ============================================
+
+-- Example 1: Search for items semantically
+-- SELECT * FROM search_items_by_embedding(
+--     '[0.1, 0.2, ...]'::vector,  -- Query embedding
+--     0.7,                          -- Similarity threshold
+--     20,                           -- Max results
+--     'fashion',                    -- Category filter
+--     'active'                      -- Status filter
+-- );
+
+-- Example 2: Get recommendations for user
+-- SELECT * FROM get_user_recommendations(
+--     '0x1234...5678',  -- Wallet address
+--     10                -- Number of recommendations
+-- );
+
+-- Example 3: Update user interaction
+-- INSERT INTO user_ai_preferences (wallet_address, viewed_items)
+-- VALUES ('0x1234...5678', '[{"sui_object_id": "0xabc", "timestamp": "2024-01-01"}]'::jsonb)
+-- ON CONFLICT (wallet_address)
+-- DO UPDATE SET
+--     viewed_items = user_ai_preferences.viewed_items || EXCLUDED.viewed_items,
+--     last_interaction_at = NOW();

@@ -1,0 +1,522 @@
+/**
+ * Sui Blockchain Query Utilities
+ *
+ * This module provides functions to query on-chain data from Sui blockchain.
+ * All marketplace data lives on-chain - this is NOT querying a centralized database.
+ *
+ * Architecture:
+ * - Source of Truth: Sui blockchain
+ * - This file: Read-only queries to fetch on-chain objects
+ * - For search: Use AI search layer which returns object IDs, then fetch here
+ */
+
+import { SuiClient } from '@mysten/sui/client'
+import { suiClient } from './client'
+import type {
+  ThriftItemObject,
+  OfferObject,
+  EscrowObject,
+  PaginatedObjectsResponse,
+  ItemQueryFilters,
+  OfferQueryFilters,
+  ItemStatus,
+} from '../types/sui-objects'
+
+// ============================================
+// CONTRACT CONFIGURATION
+// ============================================
+
+/**
+ * Package ID for deployed ThriftChain contracts
+ * This will be set after deploying contracts to testnet
+ *
+ * TODO: Update this after running `sui client publish`
+ */
+export const THRIFTCHAIN_PACKAGE_ID = process.env.NEXT_PUBLIC_THRIFTCHAIN_PACKAGE_ID || ''
+
+if (!THRIFTCHAIN_PACKAGE_ID && process.env.NODE_ENV === 'production') {
+  console.warn('WARNING: THRIFTCHAIN_PACKAGE_ID not set. Smart contract queries will fail.')
+}
+
+/**
+ * Full struct type identifiers for filtering
+ */
+export const STRUCT_TYPES = {
+  THRIFT_ITEM: `${THRIFTCHAIN_PACKAGE_ID}::marketplace::ThriftItem`,
+  OFFER: `${THRIFTCHAIN_PACKAGE_ID}::marketplace::Offer`,
+  ESCROW: `${THRIFTCHAIN_PACKAGE_ID}::marketplace::Escrow`,
+} as const
+
+// ============================================
+// ITEM QUERIES
+// ============================================
+
+/**
+ * Get all active items from blockchain
+ *
+ * @param filters - Optional filters for category, price range, etc.
+ * @param options - Pagination options
+ * @returns Paginated list of items
+ */
+export async function getAllItems(
+  filters?: ItemQueryFilters,
+  options?: {
+    cursor?: string
+    limit?: number
+  }
+): Promise<PaginatedObjectsResponse<ThriftItemObject>> {
+  try {
+    // Query all ThriftItem objects
+    const response = await suiClient.getOwnedObjects({
+      filter: {
+        StructType: STRUCT_TYPES.THRIFT_ITEM,
+      },
+      options: {
+        showContent: true,
+        showType: true,
+      },
+      cursor: options?.cursor,
+      limit: options?.limit || 50,
+    })
+
+    // Parse and filter results
+    const items: ThriftItemObject[] = response.data
+      .map(obj => parseThriftItemObject(obj))
+      .filter(item => item !== null)
+      .filter(item => applyItemFilters(item, filters)) as ThriftItemObject[]
+
+    return {
+      data: items,
+      nextCursor: response.nextCursor,
+      hasNextPage: response.hasNextPage,
+    }
+  } catch (error) {
+    console.error('Error fetching items from blockchain:', error)
+    throw new Error(`Failed to fetch items: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+/**
+ * Get a single item by its Sui object ID
+ *
+ * @param objectId - Sui object ID of the item
+ * @returns Item data or null if not found
+ */
+export async function getItemById(objectId: string): Promise<ThriftItemObject | null> {
+  try {
+    const response = await suiClient.getObject({
+      id: objectId,
+      options: {
+        showContent: true,
+        showType: true,
+      },
+    })
+
+    if (!response.data) {
+      return null
+    }
+
+    return parseThriftItemObject(response)
+  } catch (error) {
+    console.error(`Error fetching item ${objectId}:`, error)
+    return null
+  }
+}
+
+/**
+ * Get items by multiple object IDs (useful after AI search)
+ *
+ * @param objectIds - Array of Sui object IDs
+ * @returns Array of items (nulls filtered out)
+ */
+export async function getItemsByIds(objectIds: string[]): Promise<ThriftItemObject[]> {
+  try {
+    const items = await Promise.all(
+      objectIds.map(id => getItemById(id))
+    )
+
+    // Filter out nulls and return valid items
+    return items.filter(item => item !== null) as ThriftItemObject[]
+  } catch (error) {
+    console.error('Error fetching items by IDs:', error)
+    return []
+  }
+}
+
+/**
+ * Get items listed by a specific seller
+ *
+ * @param sellerAddress - Wallet address of the seller
+ * @param filters - Additional filters
+ * @returns List of seller's items
+ */
+export async function getItemsBySeller(
+  sellerAddress: string,
+  filters?: Omit<ItemQueryFilters, 'seller'>
+): Promise<ThriftItemObject[]> {
+  const result = await getAllItems({
+    ...filters,
+    seller: sellerAddress,
+  })
+
+  return result.data
+}
+
+/**
+ * Get items in a specific category
+ *
+ * @param category - Category name
+ * @param filters - Additional filters
+ * @returns List of items in category
+ */
+export async function getItemsByCategory(
+  category: string,
+  filters?: Omit<ItemQueryFilters, 'category'>
+): Promise<ThriftItemObject[]> {
+  const result = await getAllItems({
+    ...filters,
+    category,
+  })
+
+  return result.data
+}
+
+// ============================================
+// OFFER QUERIES
+// ============================================
+
+/**
+ * Get all offers for a specific item
+ *
+ * @param itemId - Sui object ID of the item
+ * @returns List of offers on the item
+ */
+export async function getOffersByItem(itemId: string): Promise<OfferObject[]> {
+  try {
+    // Query all Offer objects
+    const response = await suiClient.getOwnedObjects({
+      filter: {
+        StructType: STRUCT_TYPES.OFFER,
+      },
+      options: {
+        showContent: true,
+        showType: true,
+      },
+    })
+
+    // Parse and filter for specific item
+    const offers: OfferObject[] = response.data
+      .map(obj => parseOfferObject(obj))
+      .filter(offer => offer !== null && offer.fields.item_id === itemId) as OfferObject[]
+
+    return offers
+  } catch (error) {
+    console.error(`Error fetching offers for item ${itemId}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get offers made by a specific buyer
+ *
+ * @param buyerAddress - Wallet address of the buyer
+ * @returns List of buyer's offers
+ */
+export async function getOffersByBuyer(buyerAddress: string): Promise<OfferObject[]> {
+  try {
+    const response = await suiClient.getOwnedObjects({
+      owner: buyerAddress,
+      filter: {
+        StructType: STRUCT_TYPES.OFFER,
+      },
+      options: {
+        showContent: true,
+        showType: true,
+      },
+    })
+
+    const offers: OfferObject[] = response.data
+      .map(obj => parseOfferObject(obj))
+      .filter(offer => offer !== null) as OfferObject[]
+
+    return offers
+  } catch (error) {
+    console.error(`Error fetching offers by buyer ${buyerAddress}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get offers received by a specific seller
+ *
+ * @param sellerAddress - Wallet address of the seller
+ * @returns List of offers on seller's items
+ */
+export async function getOffersBySeller(sellerAddress: string): Promise<OfferObject[]> {
+  try {
+    // First get all seller's items
+    const items = await getItemsBySeller(sellerAddress)
+
+    // Then get offers for each item
+    const offerPromises = items.map(item => getOffersByItem(item.objectId))
+    const offerArrays = await Promise.all(offerPromises)
+
+    // Flatten into single array
+    return offerArrays.flat()
+  } catch (error) {
+    console.error(`Error fetching offers for seller ${sellerAddress}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get a single offer by its object ID
+ *
+ * @param offerId - Sui object ID of the offer
+ * @returns Offer data or null if not found
+ */
+export async function getOfferById(offerId: string): Promise<OfferObject | null> {
+  try {
+    const response = await suiClient.getObject({
+      id: offerId,
+      options: {
+        showContent: true,
+        showType: true,
+      },
+    })
+
+    if (!response.data) {
+      return null
+    }
+
+    return parseOfferObject(response)
+  } catch (error) {
+    console.error(`Error fetching offer ${offerId}:`, error)
+    return null
+  }
+}
+
+// ============================================
+// ESCROW QUERIES
+// ============================================
+
+/**
+ * Get active escrows for a buyer
+ *
+ * @param buyerAddress - Wallet address of the buyer
+ * @returns List of buyer's escrows
+ */
+export async function getEscrowsByBuyer(buyerAddress: string): Promise<EscrowObject[]> {
+  try {
+    const response = await suiClient.getOwnedObjects({
+      owner: buyerAddress,
+      filter: {
+        StructType: STRUCT_TYPES.ESCROW,
+      },
+      options: {
+        showContent: true,
+        showType: true,
+      },
+    })
+
+    const escrows: EscrowObject[] = response.data
+      .map(obj => parseEscrowObject(obj))
+      .filter(escrow => escrow !== null) as EscrowObject[]
+
+    return escrows
+  } catch (error) {
+    console.error(`Error fetching escrows for buyer ${buyerAddress}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get a single escrow by its object ID
+ *
+ * @param escrowId - Sui object ID of the escrow
+ * @returns Escrow data or null if not found
+ */
+export async function getEscrowById(escrowId: string): Promise<EscrowObject | null> {
+  try {
+    const response = await suiClient.getObject({
+      id: escrowId,
+      options: {
+        showContent: true,
+        showType: true,
+      },
+    })
+
+    if (!response.data) {
+      return null
+    }
+
+    return parseEscrowObject(response)
+  } catch (error) {
+    console.error(`Error fetching escrow ${escrowId}:`, error)
+    return null
+  }
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Parse raw Sui object response into ThriftItemObject
+ */
+function parseThriftItemObject(response: any): ThriftItemObject | null {
+  try {
+    if (!response.data?.content || response.data.content.dataType !== 'moveObject') {
+      return null
+    }
+
+    const content = response.data.content as any
+
+    return {
+      objectId: response.data.objectId,
+      version: response.data.version,
+      digest: response.data.digest,
+      fields: content.fields,
+    }
+  } catch (error) {
+    console.error('Error parsing ThriftItem:', error)
+    return null
+  }
+}
+
+/**
+ * Parse raw Sui object response into OfferObject
+ */
+function parseOfferObject(response: any): OfferObject | null {
+  try {
+    if (!response.data?.content || response.data.content.dataType !== 'moveObject') {
+      return null
+    }
+
+    const content = response.data.content as any
+
+    return {
+      objectId: response.data.objectId,
+      version: response.data.version,
+      digest: response.data.digest,
+      fields: content.fields,
+    }
+  } catch (error) {
+    console.error('Error parsing Offer:', error)
+    return null
+  }
+}
+
+/**
+ * Parse raw Sui object response into EscrowObject
+ */
+function parseEscrowObject(response: any): EscrowObject | null {
+  try {
+    if (!response.data?.content || response.data.content.dataType !== 'moveObject') {
+      return null
+    }
+
+    const content = response.data.content as any
+
+    return {
+      objectId: response.data.objectId,
+      version: response.data.version,
+      digest: response.data.digest,
+      fields: content.fields,
+    }
+  } catch (error) {
+    console.error('Error parsing Escrow:', error)
+    return null
+  }
+}
+
+/**
+ * Apply filters to an item
+ */
+function applyItemFilters(item: ThriftItemObject, filters?: ItemQueryFilters): boolean {
+  if (!filters) return true
+
+  // Filter by seller
+  if (filters.seller && item.fields.seller !== filters.seller) {
+    return false
+  }
+
+  // Filter by category
+  if (filters.category && item.fields.category !== filters.category) {
+    return false
+  }
+
+  // Filter by status
+  if (filters.status !== undefined && item.fields.status !== filters.status) {
+    return false
+  }
+
+  // Filter by trade availability
+  if (filters.isForTrade !== undefined && item.fields.is_for_trade !== filters.isForTrade) {
+    return false
+  }
+
+  // Filter by price range
+  if (filters.minPrice !== undefined) {
+    const itemPrice = BigInt(item.fields.price)
+    if (itemPrice < filters.minPrice) {
+      return false
+    }
+  }
+
+  if (filters.maxPrice !== undefined) {
+    const itemPrice = BigInt(item.fields.price)
+    if (itemPrice > filters.maxPrice) {
+      return false
+    }
+  }
+
+  // Filter by tags (item must have ALL specified tags)
+  if (filters.tags && filters.tags.length > 0) {
+    const itemTags = new Set(item.fields.tags)
+    const hasAllTags = filters.tags.every(tag => itemTags.has(tag))
+    if (!hasAllTags) {
+      return false
+    }
+  }
+
+  return true
+}
+
+// ============================================
+// STATISTICS & ANALYTICS
+// ============================================
+
+/**
+ * Get marketplace statistics
+ *
+ * @returns Basic marketplace stats
+ */
+export async function getMarketplaceStats() {
+  try {
+    const allItems = await getAllItems()
+
+    const activeItems = allItems.data.filter(item => item.fields.status === ItemStatus.Active)
+    const soldItems = allItems.data.filter(item => item.fields.status === ItemStatus.Sold)
+
+    // Calculate total value
+    const totalValue = allItems.data.reduce((sum, item) => {
+      return sum + BigInt(item.fields.price)
+    }, BigInt(0))
+
+    return {
+      totalItems: allItems.data.length,
+      activeListings: activeItems.length,
+      soldItems: soldItems.length,
+      totalValueMist: totalValue.toString(),
+    }
+  } catch (error) {
+    console.error('Error fetching marketplace stats:', error)
+    return {
+      totalItems: 0,
+      activeListings: 0,
+      soldItems: 0,
+      totalValueMist: '0',
+    }
+  }
+}

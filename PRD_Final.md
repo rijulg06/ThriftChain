@@ -140,11 +140,11 @@ We do NOT handle:
 
 ### 4.2 Item Management (Priority: Critical)
 
-**FR-006:** System MUST enable users to mint NFTs for their items with photos, descriptions, and pricing  
-**FR-007:** System MUST support both fixed-price and auction-style listings for NFTs  
-**FR-008:** System MUST allow users to mark NFT items as available for trade  
-**FR-009:** System MUST implement item categorization and tagging system for NFTs  
-**FR-010:** System MUST enable users to transfer NFT ownership when sold
+**FR-006:** System MUST enable users to mint NFTs on Sui blockchain with all item metadata (title, description, price, Walrus image IDs) stored on-chain
+**FR-007:** System MUST support both fixed-price and auction-style listings with price data stored in on-chain Move structs
+**FR-008:** System MUST allow users to mark NFT items as available for trade via on-chain status field
+**FR-009:** System MUST implement item categorization and tagging system stored in on-chain vector fields
+**FR-010:** System MUST enable users to transfer NFT ownership via Sui smart contract transactions
 
 ### 4.3 AI-Powered Discovery (Priority: High)
 
@@ -156,19 +156,20 @@ We do NOT handle:
 
 ### 4.4 Transaction & Negotiation (Priority: Critical)
 
-**FR-016:** System MUST implement real-time bidding and offer system for NFTs  
-**FR-017:** System MUST enable direct messaging between buyers and sellers  
-**FR-018:** System MUST support counteroffer functionality  
-**FR-019:** System MUST implement escrow smart contracts for NFT transfers  
-**FR-020:** System MUST provide transaction status tracking and NFT ownership updates
+**FR-016:** System MUST implement on-chain offer/bidding system with Offer Move structs stored on Sui blockchain
+**FR-017:** System MUST provide real-time offer notifications using Sui's native event subscription system (subscribeEvent)
+**FR-018:** System MUST support counteroffer functionality where sellers can counter buyer offers with new prices on-chain
+**FR-019:** System MUST implement escrow smart contracts that hold SUI tokens on-chain until delivery confirmation
+**FR-020:** System MUST provide transaction status tracking by querying on-chain Escrow objects
+**FR-021:** System MUST emit blockchain events for all negotiation actions (OfferCreated, OfferCountered, OfferAccepted, OfferRejected, OfferCancelled)
 
 ### 4.5 Payment & Escrow (Priority: Critical)
 
-**FR-021:** System MUST integrate with Sui blockchain for payment processing  
-**FR-022:** System MUST implement multi-signature escrow for transaction security  
-**FR-023:** System MUST support both SUI token and custom token payments  
-**FR-024:** System MUST implement automatic refund mechanisms for failed transactions  
-**FR-025:** System MUST provide transaction history and receipt generation
+**FR-022:** System MUST execute ALL payments via Sui blockchain smart contracts (no off-chain payment processing)
+**FR-023:** System MUST implement on-chain escrow with buyer/seller confirmation mechanism for transaction security
+**FR-024:** System MUST support SUI token payments (USDC support as future enhancement)
+**FR-025:** System MUST implement automatic refund via smart contract when escrow is disputed/cancelled
+**FR-026:** System MUST provide transaction history by querying user's on-chain transaction and escrow objects
 
 ---
 
@@ -176,11 +177,19 @@ We do NOT handle:
 
 Clear boundaries for what will NOT be included:
 
+### Architecture Explicitly Excluded
+- **Centralized Data Storage**: No marketplace data (items, offers, transactions) in traditional databases
+- **Off-Chain Transaction Processing**: All transactions execute via smart contracts, no centralized backend
+- **Custodial Wallets**: Users control their own keys, no platform custody of funds
+- **Centralized Escrow**: Escrow handled by smart contracts, not platform-controlled accounts
+
 ### Features Explicitly Excluded
-- **Fiat Currency Integration**: No credit card or bank transfer support
+- **Fiat Currency Integration**: No credit card or bank transfer support (blockchain-native only)
+- **Free-Form Chat Messaging**: No chat system - negotiation happens via structured offers/counteroffers only
 - **Complex KYC/AML**: Basic wallet verification only, no identity verification
 - **International Shipping**: Focus on local/regional transactions
-- **Advanced Analytics Dashboard**: Basic transaction history only
+- **Advanced Analytics Dashboard**: Basic transaction history only (query on-chain data)
+- **Multi-Party Auctions**: No live bidding wars - simple offer/counteroffer negotiation only
 
 ### Deferred to Future Versions
 - **Mobile App**: Web-first approach, mobile-responsive design
@@ -226,41 +235,66 @@ Clear boundaries for what will NOT be included:
 
 ## 7. Technical Considerations
 
-### Architecture Overview
+### Architecture Overview (DECENTRALIZED-FIRST)
 
 ```
-┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-│   Frontend  │ ────────▶│   Next.js   │ ────────▶│    Sui     │
-│  (Next.js)  │ ◀────────│     API     │ ◀────────│ Blockchain │
-└─────────────┘         └─────────────┘         └─────────────┘
-       │                       │                        │
-       │                       ▼                        ▼
-       │                ┌─────────────┐         ┌─────────────┐
-       └───────────────▶│   Database  │         │   Smart     │
-                        │  (Supabase) │         │  Contracts  │
-                        └─────────────┘         └─────────────┘
-                                │                        │
-                                ▼                        ▼
-                        ┌─────────────┐         ┌─────────────┐
-                        │   Storage    │         │   Walrus    │
-                        │  (Supabase)  │         │ (Decentralized│
-                        └─────────────┘         │   Storage)  │
-                                                └─────────────┘
+                    ┌──────────────────────────────┐
+                    │    SUI BLOCKCHAIN            │
+                    │   (SOURCE OF TRUTH)          │
+                    │                              │
+                    │  ┌────────────────────────┐  │
+                    │  │  Smart Contracts       │  │
+                    │  │  - ThriftItem NFTs     │  │
+                    │  │  - Offers              │  │
+                    │  │  - Escrow              │  │
+                    │  │  - Transactions        │  │
+                    │  └────────────────────────┘  │
+                    └──────────────────────────────┘
+                         ▲                    ▲
+                         │                    │
+                         │ Query              │ Write
+                         │ (Read State)       │ (Transactions)
+                         │                    │
+                    ┌────┴─────────────────────┴────┐
+                    │      Frontend (Next.js)        │
+                    │   - Query Sui RPC directly     │
+                    │   - Build & sign transactions  │
+                    │   - Wallet integration         │
+                    └────────────────────────────────┘
+                         │                    │
+                         │                    │
+                         ▼                    ▼
+            ┌─────────────────────┐   ┌─────────────────────┐
+            │   WALRUS            │   │   SUPABASE          │
+            │ (Decentralized      │   │ (AI Search ONLY)    │
+            │  Image Storage)     │   │                     │
+            │                     │   │ - Vector embeddings │
+            │ - Image blobs       │   │ - User preferences  │
+            │ - Blob IDs          │   │ - Search cache      │
+            │   stored on-chain   │   │                     │
+            └─────────────────────┘   └─────────────────────┘
 ```
+
+**KEY PRINCIPLES:**
+1. **Sui Blockchain = Source of Truth**: All marketplace data (items, offers, transactions) lives on-chain
+2. **Walrus = Decentralized Storage**: Images stored on Walrus, blob IDs referenced on-chain
+3. **Supabase = AI Search Layer ONLY**: Vector embeddings for semantic search, returns object IDs
+4. **Frontend = Direct Blockchain Interaction**: Queries Sui RPC, builds transactions, no centralized API
 
 ### Technology Stack
 
 | Layer | Technology | Justification |
 |-------|------------|---------------|
-| Frontend | Next.js 14 | Server-side rendering, API routes, excellent React ecosystem |
-| Styling | Tailwind CSS | Rapid development, consistent design system |
-| Backend | Next.js API Routes | Unified full-stack development, serverless functions |
-| Database | Supabase | Built-in auth, real-time, and edge functions |
-| Storage | Walrus | Decentralized storage integrated with Sui blockchain |
-| Blockchain | Sui Network | Fast transactions, low fees, object-centric model |
-| Smart Contracts | Move | Sui's native language, secure by design |
-| Authentication | Sui Wallet + Supabase | Web3 native with Supabase session management |
-| Real-time | Supabase Realtime | Built-in real-time subscriptions for negotiations |
+| **Data Layer (Source of Truth)** | **Sui Blockchain** | **All marketplace data stored on-chain, fully decentralized** |
+| Smart Contracts | Move | Sui's native language, secure by design, handles all business logic |
+| Frontend | Next.js 16 | Server-side rendering, App Router, React 19 |
+| Styling | Tailwind CSS 4 | Rapid development, consistent design system |
+| Blockchain SDK | @mysten/sui v1.10.0 | Official TypeScript SDK for Sui, query & transaction building |
+| **Image Storage** | **Walrus (Decentralized)** | **Byzantine fault-tolerant storage, Sui-integrated** |
+| **AI Search** | **Supabase + pgvector** | **Vector embeddings for semantic search ONLY, not source of truth** |
+| Authentication | Sui Wallet (Suiet) + Enoki (zkLogin) | Dual wallet support: browser extension + Google OAuth |
+| Wallet Integration | @suiet/wallet-kit | Browser wallet connection and transaction signing |
+| AI Embeddings | OpenAI text-embedding-ada-002 | 1536-dim vectors for semantic search |
 
 ### Key Technical Decisions
 
@@ -274,18 +308,18 @@ Clear boundaries for what will NOT be included:
 - **Alternatives Considered**: Direct RPC calls, custom SDK
 - **Rationale**: Official SDK, comprehensive features, active maintenance
 
-#### Database Choice
-- **Choice**: Supabase (PostgreSQL with built-in features)
-- **Alternatives Considered**: MongoDB, SQLite, self-hosted PostgreSQL
-- **Rationale**: Eliminates DevOps overhead, built-in auth, real-time subscriptions, and edge functions for rapid development
+#### Data Storage Choice
+- **Choice**: Sui Blockchain (on-chain) + Supabase (AI search layer)
+- **Alternatives Considered**: Full centralized DB, IPFS, Arweave
+- **Rationale**: True decentralization with Sui as source of truth, Supabase only for performance-critical AI search
 
-#### Supabase Benefits for Hackathon
-- **Zero Database Setup**: No PostgreSQL installation or configuration
-- **Built-in Authentication**: User management without custom auth code
-- **Real-time Subscriptions**: WebSocket connections for live chat and negotiations
-- **Edge Functions**: Serverless functions for API endpoints
-- **Instant APIs**: Auto-generated REST and GraphQL APIs
-- **Dashboard**: Visual database management and analytics
+#### Supabase Role (AI Search ONLY)
+- **Vector Embeddings**: pgvector extension for semantic search (1536-dim embeddings)
+- **User Preferences**: Store learned taste profiles for recommendations
+- **Search Cache**: Temporary cache of search results (expires hourly)
+- **NOT Used For**: Items, offers, transactions, ownership (all on-chain)
+- **Benefits**: Fast vector similarity search without centralizing marketplace data
+- **Risk Mitigation**: If Supabase fails, marketplace still functions (search degraded only)
 
 #### Walrus Storage Integration
 - **Decentralized Storage**: Images and content stored on decentralized network
@@ -295,80 +329,176 @@ Clear boundaries for what will NOT be included:
 - **Public & Discoverable**: All stored content is public and verifiable
 - **Smart Contract Integration**: Storage objects represented as Sui objects
 
-### Data Models
+### Data Models (ON-CHAIN MOVE STRUCTS)
 
-```typescript
-// User Profile
-interface UserProfile {
-  walletAddress: string; // Primary key
-  preferences: UserPreferences;
-  reputation: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
+**All marketplace data lives in Move structs on Sui blockchain:**
 
-// Item Listing (NFT-based)
-interface Item {
-  nftId: string; // Sui NFT object ID
-  sellerAddress: string;
-  title: string;
-  description: string;
-  images: WalrusBlob[]; // Walrus blob references
-  price: number;
-  currency: 'SUI' | 'USDC';
-  category: string;
-  tags: string[];
-  isForTrade: boolean;
-  tradePreferences: string[];
-  status: 'active' | 'sold' | 'cancelled';
-  createdAt: Date;
-  // NFT-specific fields
-  ownershipHistory: OwnershipRecord[];
-  provenance: string; // Chain of ownership
-  rarity?: string; // For collectibles
-}
+```move
+// Move smart contract (contracts/marketplace/sources/thriftchain.move)
 
-// Ownership Record
-interface OwnershipRecord {
-  owner: string;
-  timestamp: Date;
-  transactionId: string;
-  price?: number; // If sold
-}
+module thriftchain::marketplace {
+    use sui::object::{Self, UID};
+    use sui::transfer;
+    use sui::tx_context::{Self, TxContext};
 
-// Walrus Blob Reference
-interface WalrusBlob {
-  blobId: string; // Walrus blob identifier
-  url: string; // Public access URL
-  size: number; // File size in bytes
-  mimeType: string; // Image MIME type
-  uploadedAt: Date;
-}
+    /// Main marketplace item as NFT
+    /// This is the SOURCE OF TRUTH - all item data lives here
+    public struct ThriftItem has key, store {
+        id: UID,
+        seller: address,
+        title: String,
+        description: String,
+        price: u64,                      // Price in MIST
+        currency: String,                // "SUI" or "USDC"
+        category: String,
+        tags: vector<String>,
+        walrus_image_ids: vector<String>, // Walrus blob IDs
+        is_for_trade: bool,
+        status: u8,                       // 0=active, 1=sold, 2=cancelled
+        created_at: u64,                  // Timestamp in milliseconds
+    }
 
-// Transaction
-interface Transaction {
-  id: string;
-  itemId: string;
-  buyerAddress: string;
-  sellerAddress: string;
-  amount: number;
-  currency: string;
-  status: 'pending' | 'confirmed' | 'disputed' | 'completed';
-  escrowAddress: string;
-  createdAt: Date;
-  completedAt?: Date;
+    /// Offer/bid on an item
+    public struct Offer has key {
+        id: UID,
+        item_id: ID,                     // References ThriftItem
+        buyer: address,
+        seller: address,
+        amount: u64,
+        currency: String,
+        message: String,
+        status: u8,                      // 0=pending, 1=accepted, 2=rejected
+        expires_at: u64,
+        created_at: u64,
+    }
+
+    /// Escrow holding funds during transaction
+    public struct Escrow has key {
+        id: UID,
+        buyer: address,
+        seller: address,
+        item_id: ID,
+        amount: u64,
+        currency: String,
+        status: u8,                      // 0=active, 1=completed, 2=refunded
+        created_at: u64,
+        delivery_confirmed: bool,
+    }
 }
 ```
 
-### API Endpoints
+**TypeScript interfaces (mirror on-chain data for frontend):**
 
-| Method | Endpoint | Purpose | Auth Required |
-|--------|----------|---------|---------------|
-| POST | /api/items | Create item listing | Yes |
-| GET | /api/items | Get personalized feed | Yes |
-| POST | /api/offers | Make offer on item | Yes |
-| GET | /api/transactions | Get user transactions | Yes |
-| POST | /api/transactions | Create transaction | Yes |
+```typescript
+// These are READ-ONLY representations of on-chain Move structs
+// Located in: frontend/src/lib/types/sui-objects.ts
+
+interface ThriftItemObject {
+  objectId: string              // Sui object ID (primary key)
+  fields: {
+    seller: string
+    title: string
+    description: string
+    price: string               // u64 as string
+    walrus_image_ids: string[]  // Walrus blob IDs
+    status: number              // 0=active, 1=sold, 2=cancelled
+    // ... other fields from Move struct
+  }
+}
+```
+
+**Supabase schema (AI search index ONLY):**
+
+```sql
+-- This is NOT the source of truth, just a search accelerator
+-- Located in: frontend/supabase-schema.sql
+
+CREATE TABLE item_search_index (
+    sui_object_id TEXT PRIMARY KEY,     -- References on-chain object
+    title_embedding VECTOR(1536),       -- For semantic search
+    description_embedding VECTOR(1536),
+    combined_embedding VECTOR(1536),
+
+    -- Cached fields for filtering (synced from blockchain)
+    title TEXT,
+    category TEXT,
+    tags TEXT[],
+    price_mist BIGINT,
+    status TEXT,
+
+    last_indexed_at TIMESTAMP
+);
+```
+
+### API Endpoints (MINIMAL - Most ops happen on-chain)
+
+**Blockchain Operations (handled client-side via Sui SDK):**
+- Create item → Build transaction client-side → Sign with wallet → Execute on-chain
+- Make offer → Build transaction client-side → Sign with wallet → Execute on-chain
+- Accept offer → Build transaction client-side → Sign with wallet → Execute on-chain
+- Query items → Direct Sui RPC query (suiClient.getOwnedObjects)
+
+**API Routes (only for AI search & indexing):**
+
+| Method | Endpoint | Purpose | Source |
+|--------|----------|---------|--------|
+| POST | /api/ai/index-item | Index on-chain item for search | Sui → Supabase |
+| POST | /api/ai/search | Semantic search (returns object IDs) | Supabase vectors |
+| GET | /api/ai/recommendations/:wallet | Get personalized recommendations | Supabase vectors |
+| POST | /api/ai/track-interaction | Track user view/like for learning | Supabase |
+| POST | /api/walrus/upload | Upload image to Walrus | Walrus |
+
+**Data Flow:**
+1. User creates item → Upload images to Walrus → Get blob IDs
+2. Build Sui transaction with blob IDs → Sign → Execute on-chain
+3. Backend listens to blockchain events → Index item in Supabase for search
+4. User searches → Query Supabase vectors → Get object IDs
+5. Frontend fetches full item data from Sui blockchain using object IDs
+
+**Negotiation Flow (Event-Driven):**
+1. Buyer makes offer → Execute on-chain → Emit `OfferCreated` event
+2. Seller's frontend subscribed to events → Receives real-time notification
+3. Seller counters → Execute on-chain → Emit `OfferCountered` event
+4. Buyer's frontend receives counter → Can accept or counter again
+5. Seller accepts → Execute on-chain → Emit `OfferAccepted` event → Create escrow
+6. Both parties notified in real-time via event subscriptions
+
+### Real-Time Event Subscriptions
+
+**Architecture:** Sui's native WebSocket event system (`suiClient.subscribeEvent`)
+
+**Event Types Emitted:**
+```typescript
+// All events emitted from Move contracts
+OfferCreated      // When buyer makes initial offer
+OfferCountered    // When seller counters with new price
+OfferAccepted     // When seller accepts offer (creates escrow)
+OfferRejected     // When seller rejects offer
+OfferCancelled    // When buyer cancels their offer
+ItemSold          // When escrow completes and item transfers
+```
+
+**Frontend Subscription Pattern:**
+```typescript
+// Subscribe to events for real-time UI updates
+const unsubscribe = await suiClient.subscribeEvent({
+    filter: {
+        MoveEventType: `${PACKAGE_ID}::marketplace::OfferCreated`
+    },
+    onMessage: (event) => {
+        // Real-time notification when offer is made
+        showNotification(event.parsedJson)
+        refetchOffers()
+    }
+})
+```
+
+**Benefits:**
+- ✅ Fully decentralized (no Supabase Realtime needed for offers)
+- ✅ Native to Sui blockchain
+- ✅ Events are permanent and queryable
+- ✅ No additional infrastructure required
+- ✅ Direct blockchain integration
 
 ### Performance Considerations
 - **Target Response Time**: < 200ms for API calls, < 2s for page loads
