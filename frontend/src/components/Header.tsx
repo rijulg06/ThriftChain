@@ -15,7 +15,7 @@ export function Header() {
 
   return (
     <header className="w-full bg-transparent">
-      <div className="mx-auto max-w-5xl px-4 pt-6 flex items-center justify-between">
+      <div className="mx-20 px-4 pt-6 flex items-center justify-between">
         <a href="/" className="text-base font-semibold retro-card retro-shadow px-3 py-2 font-sans">ThriftChain</a>
         <div className="flex items-center gap-3">
           <a href="/listings" className="text-sm opacity-80 hover:opacity-100">Browse</a>

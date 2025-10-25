@@ -122,3 +122,21 @@
   transform: translate(2px, 2px);
   box-shadow: 2px 2px 0 oklch(0.85 0 0 / 1);
 }
+
+/* Infinite scroll animation for item carousel */
+@keyframes scroll-infinite {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll-infinite {
+  animation: scroll-infinite 20s linear infinite;
+}
+
+.animate-scroll-infinite:hover {
+  animation-play-state: paused;
+}
