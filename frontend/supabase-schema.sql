@@ -1,326 +1,312 @@
--- ThriftChain Minimal Database Schema (AI Search Layer ONLY)
+-- ThriftChain AI Search Layer Schema
 --
--- ARCHITECTURE PRINCIPLE:
--- Supabase is used ONLY for AI-powered search and recommendations.
+-- CRITICAL ARCHITECTURE PRINCIPLE:
+-- Supabase stores ONLY embeddings for AI search. Nothing else.
 -- ALL marketplace data (items, offers, transactions) lives on Sui blockchain.
--- This schema contains only vector embeddings and search indexes.
+-- This is NOT a cache. This is ONLY for vector similarity search.
 --
 -- Run this in Supabase SQL Editor after creating your project
 
 -- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "vector";  -- For pgvector support
 
 -- ============================================
--- ITEM SEARCH INDEX (AI-POWERED SEARCH)
+-- ITEM SEARCH INDEX (AI-POWERED SEARCH ONLY)
 -- ============================================
--- This table indexes on-chain items for semantic search
--- It's a READ-OPTIMIZED CACHE that syncs from Sui blockchain
+-- Purpose: Store vector embeddings to enable semantic search
+-- Returns: Sui object IDs (frontend fetches full data from blockchain)
 
 CREATE TABLE IF NOT EXISTS item_search_index (
-    -- Primary key is the Sui object ID (source of truth on blockchain)
+    -- Primary key: Reference to on-chain ThriftItem NFT
     sui_object_id TEXT PRIMARY KEY,
 
-    -- Vector embeddings for semantic search
-    title_embedding VECTOR(1536),         -- OpenAI embedding dimension
-    description_embedding VECTOR(1536),   -- For semantic similarity
-    combined_embedding VECTOR(1536),      -- Title + description + tags
+    -- Vector embeddings for different search strategies
+    title_embedding VECTOR(768),         -- Text-only: item title
+    description_embedding VECTOR(768),   -- Text-only: item description
+    image_embedding VECTOR(768),         -- Image-only: visual features
+    combined_embedding VECTOR(768),      -- Multimodal: text + images (MOST POWERFUL)
 
-    -- Cached fields for fast filtering (synced from blockchain)
-    title TEXT NOT NULL,
-    description TEXT,
-    category TEXT,
-    tags TEXT[] DEFAULT '{}',
-    price_mist BIGINT,                    -- Price in MIST (smallest SUI unit)
-    seller_address TEXT,
-    status TEXT DEFAULT 'active',         -- active, sold, cancelled
-
-    -- Walrus image references (stored on-chain, cached here)
-    walrus_blob_ids TEXT[] DEFAULT '{}',
-
-    -- Metadata for search optimization
-    search_rank FLOAT DEFAULT 0.0,        -- Calculated ranking score
-    view_count INTEGER DEFAULT 0,         -- Cached from on-chain events
-
-    -- Sync tracking
-    last_indexed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    blockchain_created_at TIMESTAMP WITH TIME ZONE,
-
-    -- Indexes for fast lookups
-    CONSTRAINT valid_status CHECK (status IN ('active', 'sold', 'cancelled'))
+    -- Metadata
+    indexed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Indexes for vector similarity search
+-- Vector similarity search indexes (for fast nearest-neighbor queries)
+-- Using IVFFlat for good balance of speed and accuracy
+
 CREATE INDEX idx_title_embedding ON item_search_index
-    USING ivfflat (title_embedding vector_cosine_ops);
+    USING ivfflat (title_embedding vector_cosine_ops)
+    WITH (lists = 100);
 
 CREATE INDEX idx_description_embedding ON item_search_index
-    USING ivfflat (description_embedding vector_cosine_ops);
+    USING ivfflat (description_embedding vector_cosine_ops)
+    WITH (lists = 100);
+
+CREATE INDEX idx_image_embedding ON item_search_index
+    USING ivfflat (image_embedding vector_cosine_ops)
+    WITH (lists = 100);
 
 CREATE INDEX idx_combined_embedding ON item_search_index
-    USING ivfflat (combined_embedding vector_cosine_ops);
-
--- Indexes for filtering
-CREATE INDEX idx_item_category ON item_search_index(category);
-CREATE INDEX idx_item_status ON item_search_index(status);
-CREATE INDEX idx_item_tags ON item_search_index USING GIN(tags);
-CREATE INDEX idx_item_price ON item_search_index(price_mist);
-CREATE INDEX idx_item_seller ON item_search_index(seller_address);
+    USING ivfflat (combined_embedding vector_cosine_ops)
+    WITH (lists = 100);
 
 -- ============================================
 -- USER AI PREFERENCES (RECOMMENDATION ENGINE)
 -- ============================================
--- Stores user taste profiles for personalized recommendations
--- This is the ONLY user data not on blockchain (privacy preference)
+-- Purpose: Store learned user taste profiles for personalized recommendations
+-- Privacy: This is the ONLY user data not on blockchain
 
 CREATE TABLE IF NOT EXISTS user_ai_preferences (
     wallet_address TEXT PRIMARY KEY,
 
-    -- User taste profile (learned from interactions)
-    preference_vector VECTOR(1536),       -- Aggregated preference embedding
+    -- User taste profile (learned from viewing/liking items)
+    preference_embedding VECTOR(768),     -- Aggregated preference vector
 
-    -- Interaction history for collaborative filtering
-    viewed_items JSONB DEFAULT '[]'::jsonb,           -- Array of {sui_object_id, timestamp, duration}
-    liked_items TEXT[] DEFAULT '{}',                  -- Array of sui_object_ids
-    disliked_items TEXT[] DEFAULT '{}',               -- Array of sui_object_ids
-    purchased_items TEXT[] DEFAULT '{}',              -- Array of sui_object_ids
-
-    -- Category preferences (learned)
-    preferred_categories JSONB DEFAULT '{}'::jsonb,   -- {category: weight}
-    preferred_price_range JSONB DEFAULT '{}'::jsonb,  -- {min: number, max: number}
+    -- Interaction tracking (for collaborative filtering)
+    viewed_item_ids TEXT[] DEFAULT '{}',      -- Array of sui_object_ids
+    liked_item_ids TEXT[] DEFAULT '{}',       -- Array of sui_object_ids
 
     -- Metadata
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    last_interaction_at TIMESTAMP WITH TIME ZONE
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Index for preference vector similarity
-CREATE INDEX idx_preference_vector ON user_ai_preferences
-    USING ivfflat (preference_vector vector_cosine_ops);
+-- Index for finding users with similar tastes
+CREATE INDEX idx_preference_embedding ON user_ai_preferences
+    USING ivfflat (preference_embedding vector_cosine_ops)
+    WITH (lists = 100);
 
--- ============================================
--- SEARCH CACHE (OPTIONAL - PERFORMANCE)
--- ============================================
--- Temporary cache for frequently searched queries
--- Expires after 1 hour to ensure freshness
-
-CREATE TABLE IF NOT EXISTS search_cache (
-    query_hash TEXT PRIMARY KEY,          -- Hash of search query
-    query_text TEXT NOT NULL,
-    sui_object_ids TEXT[] DEFAULT '{}',   -- Array of matching object IDs
-    result_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    expires_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() + INTERVAL '1 hour'
-);
-
--- Index for cleanup of expired cache
-CREATE INDEX idx_search_cache_expires ON search_cache(expires_at);
-
--- ============================================
--- FUNCTIONS FOR VECTOR SEARCH
--- ============================================
-
--- Function to search items by semantic similarity
-CREATE OR REPLACE FUNCTION search_items_by_embedding(
-    query_embedding VECTOR(1536),
-    match_threshold FLOAT DEFAULT 0.7,
-    match_count INT DEFAULT 20,
-    filter_category TEXT DEFAULT NULL,
-    filter_status TEXT DEFAULT 'active'
-)
-RETURNS TABLE (
-    sui_object_id TEXT,
-    title TEXT,
-    description TEXT,
-    similarity FLOAT
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        i.sui_object_id,
-        i.title,
-        i.description,
-        1 - (i.combined_embedding <=> query_embedding) AS similarity
-    FROM item_search_index i
-    WHERE
-        (filter_category IS NULL OR i.category = filter_category)
-        AND i.status = filter_status
-        AND 1 - (i.combined_embedding <=> query_embedding) > match_threshold
-    ORDER BY i.combined_embedding <=> query_embedding
-    LIMIT match_count;
-END;
-$$ LANGUAGE plpgsql;
-
--- Function to get recommendations for a user
-CREATE OR REPLACE FUNCTION get_user_recommendations(
-    user_wallet TEXT,
-    recommendation_count INT DEFAULT 10
-)
-RETURNS TABLE (
-    sui_object_id TEXT,
-    title TEXT,
-    similarity FLOAT
-) AS $$
-DECLARE
-    user_pref_vector VECTOR(1536);
-BEGIN
-    -- Get user's preference vector
-    SELECT preference_vector INTO user_pref_vector
-    FROM user_ai_preferences
-    WHERE wallet_address = user_wallet;
-
-    -- If user has no preferences yet, return trending items
-    IF user_pref_vector IS NULL THEN
-        RETURN QUERY
-        SELECT
-            i.sui_object_id,
-            i.title,
-            0.0 AS similarity
-        FROM item_search_index i
-        WHERE i.status = 'active'
-        ORDER BY i.view_count DESC, i.last_indexed_at DESC
-        LIMIT recommendation_count;
-    ELSE
-        -- Return items similar to user preferences
-        RETURN QUERY
-        SELECT
-            i.sui_object_id,
-            i.title,
-            1 - (i.combined_embedding <=> user_pref_vector) AS similarity
-        FROM item_search_index i
-        WHERE
-            i.status = 'active'
-            -- Exclude items user already interacted with
-            AND i.sui_object_id NOT IN (
-                SELECT unnest(viewed_items::text[]) FROM user_ai_preferences WHERE wallet_address = user_wallet
-            )
-        ORDER BY i.combined_embedding <=> user_pref_vector
-        LIMIT recommendation_count;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- ============================================
--- TRIGGERS FOR AUTOMATIC UPDATES
--- ============================================
-
--- Auto-update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
+-- Auto-update timestamp trigger
+CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_user_preferences_updated_at
+CREATE TRIGGER trigger_update_user_preferences
     BEFORE UPDATE ON user_ai_preferences
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at();
 
--- Auto-cleanup expired search cache
+-- ============================================
+-- SEARCH CACHE (OPTIONAL - PERFORMANCE)
+-- ============================================
+-- Purpose: Cache frequently searched queries (expires after 1 hour)
+
+CREATE TABLE IF NOT EXISTS search_cache (
+    query_hash TEXT PRIMARY KEY,              -- Hash of search query
+    query_embedding VECTOR(768),              -- Original query vector
+    result_object_ids TEXT[] DEFAULT '{}',    -- Array of matching sui_object_ids
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() + INTERVAL '1 hour'
+);
+
+CREATE INDEX idx_search_cache_expires ON search_cache(expires_at);
+
+-- Auto-cleanup expired cache (run periodically)
 CREATE OR REPLACE FUNCTION cleanup_expired_cache()
-RETURNS TRIGGER AS $$
+RETURNS void AS $$
 BEGIN
     DELETE FROM search_cache WHERE expires_at < NOW();
-    RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 -- ============================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- SEARCH FUNCTIONS
 -- ============================================
 
--- Enable RLS on all tables
+/**
+ * Semantic search by query embedding
+ * Returns: Array of sui_object_ids sorted by similarity
+ * Frontend will then fetch full item data from Sui blockchain
+ */
+CREATE OR REPLACE FUNCTION search_items_by_embedding(
+    query_embedding VECTOR(768),
+    similarity_threshold FLOAT DEFAULT 0.7,
+    max_results INT DEFAULT 20,
+    use_combined BOOLEAN DEFAULT TRUE  -- If true, use combined_embedding; else use title_embedding
+)
+RETURNS TABLE (
+    sui_object_id TEXT,
+    similarity_score FLOAT
+) AS $$
+BEGIN
+    IF use_combined THEN
+        RETURN QUERY
+        SELECT
+            i.sui_object_id,
+            1 - (i.combined_embedding <=> query_embedding) AS similarity_score
+        FROM item_search_index i
+        WHERE 1 - (i.combined_embedding <=> query_embedding) > similarity_threshold
+        ORDER BY i.combined_embedding <=> query_embedding
+        LIMIT max_results;
+    ELSE
+        RETURN QUERY
+        SELECT
+            i.sui_object_id,
+            1 - (i.title_embedding <=> query_embedding) AS similarity_score
+        FROM item_search_index i
+        WHERE 1 - (i.title_embedding <=> query_embedding) > similarity_threshold
+        ORDER BY i.title_embedding <=> query_embedding
+        LIMIT max_results;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+/**
+ * Visual search by image embedding
+ * Returns: Items with visually similar images
+ */
+CREATE OR REPLACE FUNCTION search_items_by_image(
+    query_image_embedding VECTOR(768),
+    similarity_threshold FLOAT DEFAULT 0.7,
+    max_results INT DEFAULT 20
+)
+RETURNS TABLE (
+    sui_object_id TEXT,
+    similarity_score FLOAT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        i.sui_object_id,
+        1 - (i.image_embedding <=> query_image_embedding) AS similarity_score
+    FROM item_search_index i
+    WHERE 1 - (i.image_embedding <=> query_image_embedding) > similarity_threshold
+    ORDER BY i.image_embedding <=> query_image_embedding
+    LIMIT max_results;
+END;
+$$ LANGUAGE plpgsql;
+
+/**
+ * Get personalized recommendations for a user
+ * Returns: sui_object_ids that match user's learned preferences
+ */
+CREATE OR REPLACE FUNCTION get_user_recommendations(
+    user_wallet TEXT,
+    max_results INT DEFAULT 10
+)
+RETURNS TABLE (
+    sui_object_id TEXT,
+    similarity_score FLOAT
+) AS $$
+DECLARE
+    user_pref_vec VECTOR(768);
+BEGIN
+    -- Get user's preference vector
+    SELECT preference_embedding INTO user_pref_vec
+    FROM user_ai_preferences
+    WHERE wallet_address = user_wallet;
+
+    -- If user has no preferences yet, return empty (frontend can show trending items from blockchain)
+    IF user_pref_vec IS NULL THEN
+        RETURN;
+    END IF;
+
+    -- Return items similar to user preferences (excluding already viewed)
+    RETURN QUERY
+    SELECT
+        i.sui_object_id,
+        1 - (i.combined_embedding <=> user_pref_vec) AS similarity_score
+    FROM item_search_index i
+    WHERE
+        -- Exclude items user already viewed
+        i.sui_object_id != ALL(
+            SELECT viewed_item_ids FROM user_ai_preferences WHERE wallet_address = user_wallet
+        )
+    ORDER BY i.combined_embedding <=> user_pref_vec
+    LIMIT max_results;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- ROW LEVEL SECURITY (RLS)
+-- ============================================
+
 ALTER TABLE item_search_index ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_ai_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE search_cache ENABLE ROW LEVEL SECURITY;
 
--- Item search index: Public read access (it's a search index)
-CREATE POLICY "Item search index is viewable by everyone"
-    ON item_search_index FOR SELECT USING (true);
+-- Item search index: Public read (anyone can search)
+CREATE POLICY "Anyone can search items"
+    ON item_search_index FOR SELECT
+    USING (true);
 
--- Only backend services can insert/update search index
-CREATE POLICY "Only service role can modify search index"
+-- Only backend service can index items
+CREATE POLICY "Only service role can index items"
     ON item_search_index FOR ALL
     USING (auth.jwt() ->> 'role' = 'service_role');
 
--- User preferences: Users can only see/modify their own
-CREATE POLICY "Users can view their own preferences"
+-- User preferences: Users own their data
+CREATE POLICY "Users can view own preferences"
     ON user_ai_preferences FOR SELECT
     USING (auth.jwt() ->> 'wallet_address' = wallet_address);
 
-CREATE POLICY "Users can update their own preferences"
-    ON user_ai_preferences FOR UPDATE
+CREATE POLICY "Users can update own preferences"
+    ON user_ai_preferences FOR ALL
     USING (auth.jwt() ->> 'wallet_address' = wallet_address);
 
-CREATE POLICY "Users can insert their own preferences"
-    ON user_ai_preferences FOR INSERT
-    WITH CHECK (auth.jwt() ->> 'wallet_address' = wallet_address);
-
--- Search cache: Public read access
-CREATE POLICY "Search cache is viewable by everyone"
-    ON search_cache FOR SELECT USING (true);
-
-CREATE POLICY "Anyone can insert to search cache"
-    ON search_cache FOR INSERT WITH CHECK (true);
+-- Search cache: Public read/write (it's just a cache)
+CREATE POLICY "Anyone can use search cache"
+    ON search_cache FOR ALL
+    USING (true);
 
 -- ============================================
--- NOTES FOR DEVELOPERS
--- ============================================
---
--- IMPORTANT REMINDERS:
---
--- 1. SOURCE OF TRUTH: Sui blockchain stores all marketplace data
---    - This database is a CACHE for search performance only
---    - Always verify data by reading from Sui when displaying details
---
--- 2. INDEXING FLOW:
---    - User mints item NFT on Sui → Event emitted
---    - Backend listens to events → Generates embeddings
---    - Inserts into item_search_index for searchability
---
--- 3. SEARCH FLOW:
---    - User searches → Generate query embedding
---    - Query item_search_index → Get sui_object_ids
---    - Fetch full item data from Sui blockchain
---
--- 4. VECTOR DIMENSIONS:
---    - Using 1536 dimensions (OpenAI text-embedding-ada-002)
---    - Change this if using different embedding model
---
--- 5. PERFORMANCE:
---    - IVFFlat indexes require periodic VACUUM and ANALYZE
---    - Consider HNSW indexes for better performance at scale
---
--- 6. SYNC STRATEGY:
---    - Periodically resync from blockchain to catch any missed events
---    - Check last_indexed_at to find stale entries
---
--- ============================================
--- SAMPLE USAGE EXAMPLES
+-- USAGE EXAMPLES
 -- ============================================
 
--- Example 1: Search for items semantically
+-- Example 1: Semantic text search
 -- SELECT * FROM search_items_by_embedding(
---     '[0.1, 0.2, ...]'::vector,  -- Query embedding
---     0.7,                          -- Similarity threshold
---     20,                           -- Max results
---     'fashion',                    -- Category filter
---     'active'                      -- Status filter
+--     '[0.1, 0.2, ..., 0.768]'::VECTOR(768),  -- Query embedding from "vintage leather jacket"
+--     0.7,                                      -- 70% similarity threshold
+--     20,                                       -- Return top 20 matches
+--     TRUE                                      -- Use combined (multimodal) embedding
+-- );
+-- Returns: [sui_object_id_1, sui_object_id_2, ...]
+-- Then: Frontend fetches full item data from Sui blockchain
+
+-- Example 2: Visual search (upload image, find similar items)
+-- SELECT * FROM search_items_by_image(
+--     '[0.1, 0.2, ..., 0.768]'::VECTOR(768),  -- Image embedding
+--     0.75,                                     -- 75% similarity threshold
+--     10                                        -- Return top 10
 -- );
 
--- Example 2: Get recommendations for user
+-- Example 3: Get personalized recommendations
 -- SELECT * FROM get_user_recommendations(
---     '0x1234...5678',  -- Wallet address
---     10                -- Number of recommendations
+--     '0x1234...5678',  -- User's wallet address
+--     15                -- Return 15 recommendations
 -- );
 
--- Example 3: Update user interaction
--- INSERT INTO user_ai_preferences (wallet_address, viewed_items)
--- VALUES ('0x1234...5678', '[{"sui_object_id": "0xabc", "timestamp": "2024-01-01"}]'::jsonb)
+-- Example 4: Track user interaction (when user views an item)
+-- INSERT INTO user_ai_preferences (wallet_address, viewed_item_ids)
+-- VALUES ('0x1234...5678', ARRAY['0xabc...123'])
 -- ON CONFLICT (wallet_address)
 -- DO UPDATE SET
---     viewed_items = user_ai_preferences.viewed_items || EXCLUDED.viewed_items,
---     last_interaction_at = NOW();
+--     viewed_item_ids = array_append(user_ai_preferences.viewed_item_ids, '0xabc...123'),
+--     updated_at = NOW();
+
+-- ============================================
+-- MAINTENANCE NOTES
+-- ============================================
+
+-- VECTOR DIMENSIONS:
+-- - Currently using 768 dimensions (Google Gemini embeddings)
+-- - If switching to OpenAI, change to 1536 dimensions
+-- - Update CREATE TABLE and all VECTOR(768) references
+
+-- PERFORMANCE:
+-- - Run VACUUM ANALYZE periodically for ivfflat indexes
+-- - Consider HNSW indexes for better performance at scale:
+--   CREATE INDEX USING hnsw (embedding vector_cosine_ops);
+
+-- SYNC STRATEGY:
+-- - Backend listens to Sui blockchain events (ItemCreated)
+-- - Generates embeddings and inserts into item_search_index
+-- - Periodic re-indexing to catch missed events (check indexed_at)
+
+-- REMEMBER:
+-- Supabase is NOT the source of truth!
+-- Always fetch full item data from Sui blockchain for display.
+-- This database only accelerates search queries.

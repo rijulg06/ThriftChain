@@ -191,33 +191,39 @@
 
 **Priority:** MEDIUM - Nice-to-have for better UX
 
-- [ ] **3.1** Create embeddings utility
+- [x] **3.1** Create embeddings utility
   - Create `frontend/src/lib/ai/embeddings.ts` (use basic implementation or Google Gemini API)
   - Implement `embedText(text: string): Promise<number[]>`
-  - Implement `generateItemEmbeddings(item): Promise<{titleEmbedding, descriptionEmbedding, combinedEmbedding}>`
-  - Test: Can generate 1536-dim vector from text
+  - Implement `embedImage(file: File): Promise<number[]>` (ADDED - for visual embeddings)
+  - Implement `embedTextAndImage(text, files): Promise<number[]>` (ADDED - multimodal)
+  - Implement `generateItemEmbeddings(item): Promise<{titleEmbedding, descriptionEmbedding, imageEmbedding, combinedEmbedding}>`
+  - Test: Can generate 768-dim vectors (Gemini) from text and images
+  - **File:** `frontend/src/lib/ai/embeddings.ts` ✅ COMPLETED
 
-- [ ] **3.2** Create indexing API route
+- [x] **3.2** Create indexing API route
   - `frontend/src/app/api/ai/index-item/route.ts`
-  - POST endpoint: accepts Sui object ID
-  - Fetch item data from blockchain using `getItemById()`
-  - Generate embeddings for title, description, combined
-  - Insert into Supabase `item_search_index` table
-  - Test: Can POST object ID, see row in Supabase
+  - POST endpoint: accepts { sui_object_id, title, description, images (base64) }
+  - Frontend provides ALL data (no fetching from blockchain or Walrus needed!)
+  - Converts base64 images to File objects
+  - Generate embeddings for title, description, image, combined (all 4!)
+  - Insert into Supabase `item_search_index` table with all 4 embeddings
+  - Test: Can POST with item data, see row in Supabase with all embeddings populated
+  - **File:** `frontend/src/app/api/ai/index-item/route.ts` ✅ COMPLETED
 
-- [ ] **3.3** Create event listener for auto-indexing (optional)
+- [x] **3.3** Create event listener for auto-indexing (optional)
   - Listen to blockchain events (`ItemCreated`)
   - Automatically call `/api/ai/index-item` when new item minted
   - OR: Manual indexing button on item detail page
   - Test: New items automatically appear in search index
 
-- [ ] **3.4** Create semantic search API route
+- [x] **3.4** Create semantic search API route
   - `frontend/src/app/api/ai/search/route.ts`
   - POST endpoint: accepts search query text
   - Generate embedding for query
   - Call Supabase function `search_items_by_embedding()`
-  - Return array of Sui object IDs with similarity scores
+  - Return array of Sui object IDs sorted by relevance (highest first)
   - Test: Can search "vintage jacket", get relevant object IDs
+  - **File:** `frontend/src/app/api/ai/search/route.ts` ✅ COMPLETED
 
 - [ ] **3.5** Integrate search into /listings page
   - Add search bar component
