@@ -129,13 +129,13 @@
 
 **Priority:** HIGH - Users need to list items to populate marketplace
 
-- [ ] **2.1** Create TypeScript types for API responses
+- [ ] **2.1** Create TypeScript types for API responses (DEV 3)
   - Create `frontend/src/lib/types/api.ts`
   - Define types for API request/response bodies
   - Define error response types
   - Test: Can import types without errors
 
-- [ ] **2.2** Create Walrus upload API route
+- [ ] **2.2** Create Walrus upload API route (DEV 3)
   - `frontend/src/app/api/walrus/upload/route.ts`
   - POST endpoint: accepts File, returns Walrus blob ID
   - Use `uploadToWalrus()` from `lib/walrus/client.ts`
