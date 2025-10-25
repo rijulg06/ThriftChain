@@ -107,3 +107,9 @@ NEXT_PUBLIC_RPC_URL=https://fullnode.testnet.sui.io:443
 ## Deployment
 
 The frontend can be deployed to Vercel. See [Next.js deployment docs](https://nextjs.org/docs/app/building-your-application/deploying).
+
+# Docs Repos
+ - https://github.com/MystenLabs/sui
+ - https://github.com/MystenLabs/move-book
+ - https://github.com/MystenLabs/ts-sdks
+ - https://github.com/MystenLabs/walrus-docs
