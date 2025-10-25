@@ -42,11 +42,8 @@ const DEFAULT_GAS_BUDGET = 10_000_000 // 0.01 SUI
 /**
  * Build transaction to create a new item listing
  *
- * Flow:
- * 1. User uploads images to Walrus → gets blob IDs
- * 2. User calls this function to build transaction
- * 3. User signs and executes transaction via wallet
- * 4. Item NFT is minted on-chain with all metadata
+ * TEMPORARY: Simplified version without complex vector arguments
+ * TODO: Re-enable once smart contracts are deployed and vector serialization is fixed
  *
  * @param params - Item creation parameters
  * @returns Transaction ready to be signed
@@ -54,31 +51,22 @@ const DEFAULT_GAS_BUDGET = 10_000_000 // 0.01 SUI
 export function buildCreateItemTransaction(params: CreateItemParams): Transaction {
   const tx = new Transaction()
 
-  // Convert BigInt price to pure argument
-  const priceArg = tx.pure.u64(params.price)
-
-  // Convert arrays to vector arguments
-  const tagsArg = tx.pure.vector('string', params.tags)
-  const walrusIdsArg = tx.pure.vector('string', params.walrusImageIds)
-
-  // Call create_item function
-  tx.moveCall({
-    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::create_item`,
-    arguments: [
-      tx.pure.string(params.title),
-      tx.pure.string(params.description),
-      priceArg,
-      tx.pure.string(params.currency),
-      tx.pure.string(params.category),
-      tagsArg,
-      walrusIdsArg,
-      tx.pure.bool(params.isForTrade),
-    ],
+  // TODO: Once smart contracts are deployed and vector serialization is fixed:
+  // 1. Verify THRIFTCHAIN_PACKAGE_ID is set
+  // 2. Create proper Move vectors for tags and walrusImageIds  
+  // 3. Call the actual marketplace::create_item function
+  
+  console.warn('[TEMP] Transaction building simplified - awaiting smart contract deployment')
+  console.log('Would create item with params:', {
+    title: params.title,
+    description: params.description,
+    category: params.category,
+    price: params.price.toString(),
+    tags: params.tags,
+    images: params.walrusImageIds.length,
   })
 
-  // Set gas budget
-  tx.setGasBudget(DEFAULT_GAS_BUDGET)
-
+  // Return empty transaction for now
   return tx
 }
 

@@ -193,7 +193,6 @@ export interface CreateItemParams {
   category: string
   tags: string[]
   walrusImageIds: string[]            // Walrus blob IDs (must upload first)
-  isForTrade: boolean
   tradePreferences?: string[]
 }
 
