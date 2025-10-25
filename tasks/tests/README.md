@@ -1,51 +1,46 @@
-# Testing Documentation
+# Testing Files Directory
 
-This directory contains testing instructions for each task in the ThriftChain MVP implementation.
+This directory contains test files for each task in the ThriftChain MVP implementation.
 
-> **📖 For a comprehensive guide on using these tests, see:** `../TESTING-GUIDE.md`
+## File Naming Convention
 
-## Structure
-
-Each testing file follows the naming convention: `[task-number]-testing.md`
-
-Examples:
-- `1.1-testing.md` - Testing instructions for Task 1.1
-- `1.2-testing.md` - Testing instructions for Task 1.2
-- `1.3-testing.md` - Testing instructions for Task 1.3
+- `[task-number]-testing.md`
+- Examples:
+  - `1.1-testing.md` - Task 1.1 testing instructions
+  - `2.3-testing.md` - Task 2.3 testing instructions
+  - `4.7-testing.md` - Task 4.7 testing instructions
 
 ## Purpose
 
-These testing documents provide:
-1. **Step-by-step verification** of task completion
-2. **Expected outputs** for each verification step
-3. **Success criteria** checklist
-4. **Troubleshooting** guides for common issues
-5. **Next steps** pointing to the subsequent task
+Each test file serves to:
+1. **Help human developers understand the code being written**
+2. **Confirm functionality according to guidelines in `tasks/TESTING-GUIDE.md`**
+3. **Ensure integration between tasks**
+4. **Provide regression testing after changes**
 
-## How to Use
+## Workflow
 
-1. Complete the task as described in `tasks-PRD_Final.md`
-2. Follow the corresponding testing instructions in this directory
-3. Verify each step before marking the task complete
-4. Proceed to the next task only after passing all tests
+1. Complete task implementation
+2. Generate test file: `tasks/tests/[task-number]-testing.md`
+3. Follow all verification steps manually
+4. Verify all success criteria
+5. Only mark task complete (✅) after all tests pass
+6. Update `tasks-PRD_Final.md` with checkmark
+7. Proceed to next task
 
-## Current Testing Documents
+## Test File Structure
 
-- ✅ `1.1-testing.md` - Install Supabase dependencies
-- ✅ `1.2-testing.md` - Create Supabase project and environment variables
-- ✅ `1.3-testing.md` - Create database schema
+Each test file must follow the structure defined in `tasks/TESTING-GUIDE.md` and include:
+- Prerequisites verification
+- Step-by-step verification with expected outputs
+- Success criteria checklist
+- Troubleshooting section
+- Integration verification
+- Next steps guidance
 
-## Testing Philosophy
+## Quality Assurance
 
-Each test verifies:
-- **Correctness**: The implementation works as specified
-- **Integration**: Components integrate with existing infrastructure
-- **Security**: Security measures are properly configured
-- **Documentation**: Changes are properly documented
-
-## Notes
-
-- All tests are designed to be run by human developers
-- Tests include both automated checks (scripts) and manual verification
-- Troubleshooting sections help resolve common issues
-- Tests are cumulative - later tasks may depend on earlier tasks passing
+- No task is complete without passing tests
+- Test files must be generated before marking complete
+- All success criteria must be verified
+- Integration with existing system must be confirmed
