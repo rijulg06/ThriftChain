@@ -6,6 +6,9 @@ module thriftchain::thriftchain {
     use sui::clock::{Self, Clock};
     use std::string::{Self, String};
     use sui::table::{Self, Table};
+    use sui::coin::{Self, Coin};
+    use sui::balance::{Self, Balance};
+    use sui::sui::SUI;
 
     // ===== STRUCTS =====
 
@@ -54,6 +57,7 @@ module thriftchain::thriftchain {
         seller: address,
         item_id: ID,
         amount: u64,
+        held_funds: Balance<SUI>, // Holds the actual SUI coins in escrow
         status: u8, // 0: Active, 1: Completed, 2: Disputed, 3: Refunded
         created_at: u64,
         completed_at: u64,
@@ -586,6 +590,8 @@ module thriftchain::thriftchain {
     // ===== ESCROW SYSTEM =====
 
     /// Accept an offer and create escrow (seller side)
+    /// Note: Buyer must send payment separately via accept_offer_with_payment
+    /// This function is kept for backward compatibility but doesn't handle funds
     public entry fun accept_offer(
         marketplace: &mut Marketplace,
         offer: &mut Offer,
@@ -603,13 +609,14 @@ module thriftchain::thriftchain {
 
         let current_time = clock::timestamp_ms(clock);
 
-        // Create escrow
+        // Create escrow without funds (backward compatibility)
         let escrow = Escrow {
             id: object::new(ctx),
             buyer: offer.buyer,
             seller: offer.seller,
             item_id: offer.item_id,
             amount: offer.amount,
+            held_funds: balance::zero<SUI>(),
             status: 0, // Active
             created_at: current_time,
             completed_at: 0,
@@ -652,6 +659,10 @@ module thriftchain::thriftchain {
 
         let current_time = clock::timestamp_ms(clock);
 
+        // Transfer held funds to seller
+        let payment = coin::from_balance(balance::withdraw_all(&mut escrow.held_funds), ctx);
+        transfer::public_transfer(payment, escrow.seller);
+
         // Mark escrow as completed
         escrow.status = 1; // Completed
         escrow.completed_at = current_time;
@@ -668,10 +679,6 @@ module thriftchain::thriftchain {
             amount: escrow.amount,
             sold_at: current_time,
         });
-
-        // Note: In a real implementation, this would also transfer the item NFT
-        // and handle the SUI payment. For this MVP, we're focusing on the
-        // state management and event emission.
     }
 
     /// Dispute an escrow (buyer side)
@@ -715,6 +722,10 @@ module thriftchain::thriftchain {
 
         let current_time = clock::timestamp_ms(clock);
 
+        // Refund held funds to buyer
+        let refund = coin::from_balance(balance::withdraw_all(&mut escrow.held_funds), ctx);
+        transfer::public_transfer(refund, escrow.buyer);
+
         // Mark escrow as refunded
         escrow.status = 3; // Refunded
         escrow.completed_at = current_time;
@@ -733,13 +744,15 @@ module thriftchain::thriftchain {
     // ===== ID-BASED WRAPPER FUNCTIONS FOR CLI TESTING =====
     // These functions allow CLI interaction with objects stored in tables
 
-    /// Create offer by item ID (CLI-friendly wrapper)
+    /// Create offer by item ID with payment (CLI-friendly wrapper)
+    /// Buyer locks payment immediately when creating offer (proper escrow pattern)
     public entry fun create_offer_by_id(
         marketplace: &mut Marketplace,
         item_id: ID,
         amount: u64,
         message: String,
         expires_in_hours: u64,
+        payment: Coin<SUI>,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -755,6 +768,10 @@ module thriftchain::thriftchain {
         assert!(item.status == 0, 11); // Item must be active
         assert!(expires_in_hours > 0, 12); // Must have expiration
         assert!(expires_in_hours <= 168, 13); // Max 7 days
+        
+        // Validate payment matches offer amount
+        let payment_value = coin::value(&payment);
+        assert!(payment_value == amount, 40); // Payment must match offer amount
 
         let current_time = clock::timestamp_ms(clock);
         let expires_at = current_time + (expires_in_hours * 3600 * 1000);
@@ -773,12 +790,30 @@ module thriftchain::thriftchain {
             created_at: current_time,
         };
 
-        // Add to marketplace
+        // Create escrow immediately with locked funds
+        let escrow = Escrow {
+            id: object::new(ctx),
+            buyer,
+            seller,
+            item_id,
+            amount,
+            held_funds: coin::into_balance(payment),
+            status: 0, // Active
+            created_at: current_time,
+            completed_at: 0,
+        };
+
+        // Add offer to marketplace
         let offer_id = object::id(&offer);
         table::add(&mut marketplace.offers, offer_id, offer);
         marketplace.offer_counter = marketplace.offer_counter + 1;
+        
+        // Add escrow to marketplace
+        let escrow_id = object::id(&escrow);
+        table::add(&mut marketplace.escrows, escrow_id, escrow);
+        marketplace.escrow_counter = marketplace.escrow_counter + 1;
 
-        // Emit event
+        // Emit events
         event::emit(OfferCreated {
             offer_id,
             item_id,
@@ -787,6 +822,16 @@ module thriftchain::thriftchain {
             amount,
             message,
             created_at: current_time,
+        });
+        
+        event::emit(OfferAccepted {
+            escrow_id,
+            offer_id,
+            item_id,
+            buyer,
+            seller,
+            amount,
+            accepted_at: current_time,
         });
     }
 
@@ -917,6 +962,8 @@ module thriftchain::thriftchain {
     }
 
     /// Accept offer by IDs (CLI-friendly wrapper)
+    /// Note: Escrow already exists from create_offer_by_id with locked funds
+    /// This function just marks seller's acceptance of the offer
     public entry fun accept_offer_by_id(
         marketplace: &mut Marketplace,
         offer_id: ID,
@@ -936,15 +983,59 @@ module thriftchain::thriftchain {
         assert!(item.status == 0, 31); // Item must be active
         assert!(clock::timestamp_ms(clock) < offer.expires_at, 32); // Offer must not be expired
 
+        // Mark offer as accepted
+        offer.status = 2; // Accepted
+        
+        // Note: Escrow was already created when buyer made the offer with payment
+        // Funds are already locked in escrow, waiting for delivery confirmation
+    }
+
+    /// DEPRECATED: This function is no longer needed with the new payment flow
+    /// Payment is now locked when buyer creates offer (create_offer_by_id)
+    /// This function is kept for backward compatibility only but should not be used
+    /// 
+    /// Old flow (DEPRECATED):
+    ///   1. Buyer creates offer (no payment)
+    ///   2. Seller accepts with payment (seller provides payment - backwards!)
+    /// 
+    /// New flow (CORRECT):
+    ///   1. Buyer creates offer WITH payment (payment locked immediately)
+    ///   2. Seller accepts (just marks acceptance, funds already in escrow)
+    ///   3. Buyer confirms delivery (funds release to seller)
+    public entry fun accept_offer_by_id_with_payment(
+        marketplace: &mut Marketplace,
+        offer_id: ID,
+        item_id: ID,
+        payment: Coin<SUI>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let seller = tx_context::sender(ctx);
+        
+        // Get offer and item from tables
+        let offer = table::borrow_mut(&mut marketplace.offers, offer_id);
+        let item = table::borrow(&marketplace.items, item_id);
+        
+        // Validate inputs
+        assert!(offer.seller == seller, 29); // Only seller can accept
+        assert!(offer.status == 0 || offer.status == 1, 30); // Offer must be pending or countered
+        assert!(item.status == 0, 31); // Item must be active
+        assert!(clock::timestamp_ms(clock) < offer.expires_at, 32); // Offer must not be expired
+        
+        // Validate payment amount
+        let payment_value = coin::value(&payment);
+        assert!(payment_value == offer.amount, 40); // Payment must match offer amount
+
         let current_time = clock::timestamp_ms(clock);
 
-        // Create escrow
+        // Create escrow with funds
         let escrow = Escrow {
             id: object::new(ctx),
             buyer: offer.buyer,
             seller: offer.seller,
             item_id: offer.item_id,
             amount: offer.amount,
+            held_funds: coin::into_balance(payment),
             status: 0, // Active
             created_at: current_time,
             completed_at: 0,
@@ -990,6 +1081,10 @@ module thriftchain::thriftchain {
         assert!(item.status == 0, 35); // Item must be active
 
         let current_time = clock::timestamp_ms(clock);
+
+        // Transfer held funds to seller
+        let payment = coin::from_balance(balance::withdraw_all(&mut escrow.held_funds), ctx);
+        transfer::public_transfer(payment, escrow.seller);
 
         // Mark escrow as completed
         escrow.status = 1; // Completed
@@ -1057,6 +1152,10 @@ module thriftchain::thriftchain {
         assert!(escrow.status == 2, 39); // Escrow must be disputed
 
         let current_time = clock::timestamp_ms(clock);
+
+        // Refund held funds to buyer
+        let refund = coin::from_balance(balance::withdraw_all(&mut escrow.held_funds), ctx);
+        transfer::public_transfer(refund, escrow.buyer);
 
         // Mark escrow as refunded
         escrow.status = 3; // Refunded
