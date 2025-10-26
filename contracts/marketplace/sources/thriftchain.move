@@ -213,11 +213,10 @@ module thriftchain::thriftchain {
 
     // ===== ITEM CREATION =====
 
-    /// Create a new thrift item (requires ItemCap)
+    /// Create a new thrift item (open to all users for P2P marketplace)
     /// Walrus blob IDs stored on-chain for decentralized image storage
     public entry fun create_item(
         marketplace: &mut Marketplace,
-        cap: &ItemCap,
         title: String,
         description: String,
         price: u64,

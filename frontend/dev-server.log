@@ -1,0 +1,1431 @@
+
+> thriftchain@0.1.0 dev
+> next dev --webpack
+
+ ⚠ Invalid next.config.js options detected: 
+ ⚠     Unrecognized key(s) in object: 'turbo' at "experimental"
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/rijulg/package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/rijulg/sui/ThriftChain/frontend/package-lock.json
+
+   ▲ Next.js 16.0.0 (webpack)
+   - Local:        http://localhost:3000
+   - Network:      http://10.42.160.206:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 912ms
+ GET /list-item 200 in 1520ms (compile: 1320ms, render: 200ms)
+ GET /items/0xc007daa0932b2c582bcbaaaf2a6c397c897a95d33b802363d1e47be09796d089 200 in 1147ms (compile: 1130ms, render: 17ms)
+ GET /listings 200 in 299ms (compile: 286ms, render: 12ms)
+ GET /list-item 200 in 27ms (compile: 17ms, render: 11ms)
+ GET /listings 200 in 17ms (compile: 6ms, render: 12ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest123
+  - title: Test Jacket with Image
+  - description: Testing with actual image...
+  - images: 1
+[index-item] Indexing item: 0xtest123
+[index-item] Title: Test Jacket with Image
+[index-item] Images: 1
+[index-item] Converted 1 images to File objects
+[index-item] Generating embeddings...
+[embedImage] Error: ReferenceError: FileReader is not defined
+    at eval (src/lib/ai/embeddings.ts:444:20)
+    at new Promise (<anonymous>)
+    at fileToBase64 (src/lib/ai/embeddings.ts:443:10)
+    at embedImage (src/lib/ai/embeddings.ts:214:31)
+    at generateItemEmbeddings (src/lib/ai/embeddings.ts:409:13)
+    at POST (src/app/api/ai/index-item/route.ts:160:52)
+  442 | async function fileToBase64(file: File): Promise<string> {
+  443 |   return new Promise((resolve, reject) => {
+> 444 |     const reader = new FileReader();
+      |                    ^
+  445 |
+  446 |     reader.onloadend = () => {
+  447 |       const dataUrl = reader.result as string;
+[embedTextAndImage] Error: ReferenceError: FileReader is not defined
+    at eval (src/lib/ai/embeddings.ts:444:20)
+    at new Promise (<anonymous>)
+    at fileToBase64 (src/lib/ai/embeddings.ts:443:10)
+    at eval (src/lib/ai/embeddings.ts:298:30)
+    at Array.map (<anonymous>)
+    at embedTextAndImage (src/lib/ai/embeddings.ts:298:18)
+    at generateItemEmbeddings (src/lib/ai/embeddings.ts:414:13)
+    at POST (src/app/api/ai/index-item/route.ts:160:52)
+  442 | async function fileToBase64(file: File): Promise<string> {
+  443 |   return new Promise((resolve, reject) => {
+> 444 |     const reader = new FileReader();
+      |                    ^
+  445 |
+  446 |     reader.onloadend = () => {
+  447 |       const dataUrl = reader.result as string;
+Falling back to text-only embedding due to error
+[generateItemEmbeddings] Error: Error: Failed to generate image embedding: FileReader is not defined
+    at embedImage (src/lib/ai/embeddings.ts:244:11)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:400:7)
+    at async POST (src/app/api/ai/index-item/route.ts:160:24)
+  242 |   } catch (error) {
+  243 |     console.error('[embedImage] Error:', error);
+> 244 |     throw new Error(
+      |           ^
+  245 |       `Failed to generate image embedding: ${error instanceof Error ? error.message : 'Unknown error'}`
+  246 |     );
+  247 |   }
+
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+🔴 [index-item] ERROR OCCURRED
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+Error details: Error: Failed to generate item embeddings: Failed to generate image embedding: FileReader is not defined
+    at generateItemEmbeddings (src/lib/ai/embeddings.ts:426:11)
+    at async POST (src/app/api/ai/index-item/route.ts:160:24)
+  424 |   } catch (error) {
+  425 |     console.error('[generateItemEmbeddings] Error:', error);
+> 426 |     throw new Error(
+      |           ^
+  427 |       `Failed to generate item embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`
+  428 |     );
+  429 |   }
+Stack trace: Error: Failed to generate item embeddings: Failed to generate image embedding: FileReader is not defined
+    at generateItemEmbeddings (webpack-internal:///(rsc)/./src/lib/ai/embeddings.ts:370:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async POST (webpack-internal:///(rsc)/./src/app/api/ai/index-item/route.ts:138:28)
+    at async AppRouteRouteModule.do (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:37913)
+    at async AppRouteRouteModule.handle (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:45132)
+    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:236:38)
+    at async AppRouteRouteModule.handleResponse (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:19:132579)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:298:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:352:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1415:9)
+    at async DevServer.renderPageComponent (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1467:24)
+    at async DevServer.renderToResponseImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1517:32)
+    at async DevServer.pipeImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1023:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/next-server.js:394:17)
+    at async DevServer.handleRequestImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:914:17)
+    at async /Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:373:20
+    at async Span.traceAsyncFn (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:369:24)
+    at async invokeRender (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:436:24)
+    at async requestHandlerImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:484:13)
+    at async Server.requestListener (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/start-server.js:226:13)
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+
+ POST /api/ai/index-item 500 in 634ms (compile: 468ms, render: 165ms)
+ GET /list-item 200 in 62ms (compile: 46ms, render: 16ms)
+ GET /list-item 200 in 95ms (compile: 65ms, render: 30ms)
+ GET /listings 200 in 300ms (compile: 287ms, render: 13ms)
+ GET /listings 200 in 21ms (compile: 3ms, render: 18ms)
+ GET /listings 200 in 11ms (compile: 2ms, render: 9ms)
+ GET /listings 200 in 17ms (compile: 3ms, render: 14ms)
+ GET /listings 200 in 10ms (compile: 2ms, render: 8ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_with_image_fix
+  - title: Test Jacket After Fix
+  - description: Testing with image after FileReader fix...
+  - images: 1
+[index-item] Indexing item: 0xtest_with_image_fix
+[index-item] Title: Test Jacket After Fix
+[index-item] Images: 1
+[index-item] Generating embeddings...
+ GET /listings 200 in 41ms (compile: 29ms, render: 12ms)
+[embedImage] Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:embedContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for embedContent. Call ListModels to see the list of available models and their supported methods.
+    at async embedImage (src/lib/ai/embeddings.ts:251:20)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:467:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  249 |     ];
+  250 |
+> 251 |     const result = await model.embedContent(parts);
+      |                    ^
+  252 |     const embedding = result.embedding.values;
+  253 |
+  254 |     if (!embedding || embedding.length !== EMBEDDING_DIMENSIONS) { {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+[generateItemEmbeddings] Error: Error: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:embedContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for embedContent. Call ListModels to see the list of available models and their supported methods.
+    at embedImage (src/lib/ai/embeddings.ts:263:11)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:467:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  261 |   } catch (error) {
+  262 |     console.error('[embedImage] Error:', error);
+> 263 |     throw new Error(
+      |           ^
+  264 |       `Failed to generate image embedding: ${error instanceof Error ? error.message : 'Unknown error'}`
+  265 |     );
+  266 |   }
+
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+🔴 [index-item] ERROR OCCURRED
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+Error details: Error: Failed to generate item embeddings: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:embedContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for embedContent. Call ListModels to see the list of available models and their supported methods.
+    at generateItemEmbeddings (src/lib/ai/embeddings.ts:497:11)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  495 |   } catch (error) {
+  496 |     console.error('[generateItemEmbeddings] Error:', error);
+> 497 |     throw new Error(
+      |           ^
+  498 |       `Failed to generate item embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`
+  499 |     );
+  500 |   }
+Stack trace: Error: Failed to generate item embeddings: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:embedContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for embedContent. Call ListModels to see the list of available models and their supported methods.
+    at generateItemEmbeddings (webpack-internal:///(rsc)/./src/lib/ai/embeddings.ts:303:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async POST (webpack-internal:///(rsc)/./src/app/api/ai/index-item/route.ts:135:28)
+    at async AppRouteRouteModule.do (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:37913)
+    at async AppRouteRouteModule.handle (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:45132)
+    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:236:38)
+    at async AppRouteRouteModule.handleResponse (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:19:132579)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:298:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:352:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1415:9)
+    at async DevServer.renderPageComponent (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1467:24)
+    at async DevServer.renderToResponseImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1517:32)
+    at async DevServer.pipeImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1023:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/next-server.js:394:17)
+    at async DevServer.handleRequestImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:914:17)
+    at async /Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:373:20
+    at async Span.traceAsyncFn (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:369:24)
+    at async invokeRender (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:436:24)
+    at async requestHandlerImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:484:13)
+    at async Server.requestListener (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/start-server.js:226:13)
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+
+ POST /api/ai/index-item 500 in 618ms (compile: 293ms, render: 325ms)
+[embedTextAndImage] Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:embedContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for embedContent. Call ListModels to see the list of available models and their supported methods.
+    at async embedTextAndImage (src/lib/ai/embeddings.ts:372:20)
+  370 |     ];
+  371 |
+> 372 |     const result = await model.embedContent(parts);
+      |                    ^
+  373 |     const embedding = result.embedding.values;
+  374 |
+  375 |     if (!embedding || embedding.length !== EMBEDDING_DIMENSIONS) { {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+Falling back to text-only embedding due to error
+ GET /listings 200 in 197ms (compile: 6ms, render: 191ms)
+ GET /listings 200 in 17ms (compile: 1318µs, render: 16ms)
+ GET /listings 200 in 65ms (compile: 45ms, render: 20ms)
+ GET /listings 200 in 29ms (compile: 20ms, render: 8ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_full_fix_v2
+  - title: Red Test Jacket
+  - description: Testing complete fix with proper Gemini API usage...
+  - images: 1
+[index-item] Indexing item: 0xtest_full_fix_v2
+[index-item] Title: Red Test Jacket
+[index-item] Images: 1
+[index-item] Generating embeddings...
+[embedImage] Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at async embedImage (src/lib/ai/embeddings.ts:253:26)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:477:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  251 | Be specific and detailed. Output only the description, no other text.`;
+  252 |
+> 253 |     const visionResult = await visionModel.generateContent([
+      |                          ^
+  254 |       descriptionPrompt,
+  255 |       {
+  256 |         inlineData: { {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+[generateItemEmbeddings] Error: Error: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at embedImage (src/lib/ai/embeddings.ts:275:11)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:477:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  273 |   } catch (error) {
+  274 |     console.error('[embedImage] Error:', error);
+> 275 |     throw new Error(
+      |           ^
+  276 |       `Failed to generate image embedding: ${error instanceof Error ? error.message : 'Unknown error'}`
+  277 |     );
+  278 |   }
+
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+🔴 [index-item] ERROR OCCURRED
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+Error details: Error: Failed to generate item embeddings: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at generateItemEmbeddings (src/lib/ai/embeddings.ts:507:11)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  505 |   } catch (error) {
+  506 |     console.error('[generateItemEmbeddings] Error:', error);
+> 507 |     throw new Error(
+      |           ^
+  508 |       `Failed to generate item embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`
+  509 |     );
+  510 |   }
+Stack trace: Error: Failed to generate item embeddings: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at generateItemEmbeddings (webpack-internal:///(rsc)/./src/lib/ai/embeddings.ts:308:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async POST (webpack-internal:///(rsc)/./src/app/api/ai/index-item/route.ts:135:28)
+    at async AppRouteRouteModule.do (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:37913)
+    at async AppRouteRouteModule.handle (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:45132)
+    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:236:38)
+    at async AppRouteRouteModule.handleResponse (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:19:132579)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:298:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:352:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1415:9)
+    at async DevServer.renderPageComponent (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1467:24)
+    at async DevServer.renderToResponseImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1517:32)
+    at async DevServer.pipeImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1023:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/next-server.js:394:17)
+    at async DevServer.handleRequestImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:914:17)
+    at async /Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:373:20
+    at async Span.traceAsyncFn (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:369:24)
+    at async invokeRender (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:436:24)
+    at async requestHandlerImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:484:13)
+    at async Server.requestListener (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/start-server.js:226:13)
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+
+ POST /api/ai/index-item 500 in 236ms (compile: 29ms, render: 206ms)
+[embedTextAndImage] Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at async eval (src/lib/ai/embeddings.ts:371:30)
+    at async embedTextAndImage (src/lib/ai/embeddings.ts:367:31)
+  369 |         const descriptionPrompt = `Describe this marketplace item image in detail. Include colors, style, material, condition, and notable features. Output only the description.`;
+  370 |
+> 371 |         const visionResult = await visionModel.generateContent([
+      |                              ^
+  372 |           descriptionPrompt,
+  373 |           {
+  374 |             inlineData: { {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+Falling back to text-only embedding due to error
+ GET /listings 200 in 47ms (compile: 36ms, render: 12ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_model_name_fix
+  - title: Red Test Jacket V3
+  - description: Testing with correct Gemini model names...
+  - images: 1
+[index-item] Indexing item: 0xtest_model_name_fix
+[index-item] Title: Red Test Jacket V3
+[index-item] Images: 1
+[index-item] Generating embeddings...
+[embedTextAndImage] Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at async eval (src/lib/ai/embeddings.ts:371:30)
+    at async embedTextAndImage (src/lib/ai/embeddings.ts:367:31)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:477:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  369 |         const descriptionPrompt = `Describe this marketplace item image in detail. Include colors, style, material, condition, and notable features. Output only the description.`;
+  370 |
+> 371 |         const visionResult = await visionModel.generateContent([
+      |                              ^
+  372 |           descriptionPrompt,
+  373 |           {
+  374 |             inlineData: { {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+Falling back to text-only embedding due to error
+[embedImage] Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at async embedImage (src/lib/ai/embeddings.ts:253:26)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:477:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  251 | Be specific and detailed. Output only the description, no other text.`;
+  252 |
+> 253 |     const visionResult = await visionModel.generateContent([
+      |                          ^
+  254 |       descriptionPrompt,
+  255 |       {
+  256 |         inlineData: { {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+[generateItemEmbeddings] Error: Error: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at embedImage (src/lib/ai/embeddings.ts:275:11)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:477:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  273 |   } catch (error) {
+  274 |     console.error('[embedImage] Error:', error);
+> 275 |     throw new Error(
+      |           ^
+  276 |       `Failed to generate image embedding: ${error instanceof Error ? error.message : 'Unknown error'}`
+  277 |     );
+  278 |   }
+
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+🔴 [index-item] ERROR OCCURRED
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+Error details: Error: Failed to generate item embeddings: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at generateItemEmbeddings (src/lib/ai/embeddings.ts:507:11)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  505 |   } catch (error) {
+  506 |     console.error('[generateItemEmbeddings] Error:', error);
+> 507 |     throw new Error(
+      |           ^
+  508 |       `Failed to generate item embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`
+  509 |     );
+  510 |   }
+Stack trace: Error: Failed to generate item embeddings: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at generateItemEmbeddings (webpack-internal:///(rsc)/./src/lib/ai/embeddings.ts:308:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async POST (webpack-internal:///(rsc)/./src/app/api/ai/index-item/route.ts:135:28)
+    at async AppRouteRouteModule.do (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:37913)
+    at async AppRouteRouteModule.handle (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:45132)
+    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:236:38)
+    at async AppRouteRouteModule.handleResponse (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:19:132579)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:298:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:352:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1415:9)
+    at async DevServer.renderPageComponent (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1467:24)
+    at async DevServer.renderToResponseImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1517:32)
+    at async DevServer.pipeImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1023:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/next-server.js:394:17)
+    at async DevServer.handleRequestImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:914:17)
+    at async /Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:373:20
+    at async Span.traceAsyncFn (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:369:24)
+    at async invokeRender (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:436:24)
+    at async requestHandlerImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:484:13)
+    at async Server.requestListener (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/start-server.js:226:13)
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+
+ POST /api/ai/index-item 500 in 278ms (compile: 29ms, render: 249ms)
+ GET / 200 in 547ms (compile: 529ms, render: 17ms)
+ GET /listings?q=penis 200 in 45ms (compile: 22ms, render: 22ms)
+[search] Query: "penis"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query: "penis"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 1616ms (compile: 383ms, render: 1233ms)
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 1623ms (compile: 381ms, render: 1242ms)
+ GET /listings?q=asdf 200 in 54ms (compile: 43ms, render: 11ms)
+[search] Query: "asdf"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 573ms (compile: 1016µs, render: 572ms)
+ GET /listings?q=jacket 200 in 27ms (compile: 7ms, render: 20ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 395ms (compile: 3ms, render: 392ms)
+ GET /listings?q=jacket 200 in 63ms (compile: 38ms, render: 26ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 496ms (compile: 25ms, render: 471ms)
+ GET /listings?q=jacket 200 in 23ms (compile: 4ms, render: 19ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 520ms (compile: 4ms, render: 516ms)
+ GET /listings?q=jacket 200 in 21ms (compile: 5ms, render: 16ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+ GET /listings?q=jacket 200 in 13ms (compile: 3ms, render: 10ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+ GET /listings?q=jacket 200 in 18ms (compile: 4ms, render: 14ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 344ms (compile: 12ms, render: 332ms)
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+ GET /listings?q=jacket 200 in 23ms (compile: 4ms, render: 19ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 375ms (compile: 2ms, render: 373ms)
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 359ms (compile: 2ms, render: 357ms)
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 338ms (compile: 4ms, render: 335ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_latest_model
+  - title: Red Pixel Test
+  - description: Testing with gemini-1.5-flash-latest...
+  - images: 1
+[index-item] Indexing item: 0xtest_latest_model
+[index-item] Title: Red Pixel Test
+[index-item] Images: 1
+[index-item] Generating embeddings...
+[embedTextAndImage] Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent: [404 Not Found] models/gemini-1.5-flash-latest is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at async eval (src/lib/ai/embeddings.ts:371:30)
+    at async embedTextAndImage (src/lib/ai/embeddings.ts:367:31)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:477:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  369 |         const descriptionPrompt = `Describe this marketplace item image in detail. Include colors, style, material, condition, and notable features. Output only the description.`;
+  370 |
+> 371 |         const visionResult = await visionModel.generateContent([
+      |                              ^
+  372 |           descriptionPrompt,
+  373 |           {
+  374 |             inlineData: { {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+Falling back to text-only embedding due to error
+[embedImage] Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent: [404 Not Found] models/gemini-1.5-flash-latest is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at async embedImage (src/lib/ai/embeddings.ts:253:26)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:477:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  251 | Be specific and detailed. Output only the description, no other text.`;
+  252 |
+> 253 |     const visionResult = await visionModel.generateContent([
+      |                          ^
+  254 |       descriptionPrompt,
+  255 |       {
+  256 |         inlineData: { {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+[generateItemEmbeddings] Error: Error: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent: [404 Not Found] models/gemini-1.5-flash-latest is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at embedImage (src/lib/ai/embeddings.ts:275:11)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:477:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  273 |   } catch (error) {
+  274 |     console.error('[embedImage] Error:', error);
+> 275 |     throw new Error(
+      |           ^
+  276 |       `Failed to generate image embedding: ${error instanceof Error ? error.message : 'Unknown error'}`
+  277 |     );
+  278 |   }
+
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+🔴 [index-item] ERROR OCCURRED
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+Error details: Error: Failed to generate item embeddings: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent: [404 Not Found] models/gemini-1.5-flash-latest is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at generateItemEmbeddings (src/lib/ai/embeddings.ts:507:11)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  505 |   } catch (error) {
+  506 |     console.error('[generateItemEmbeddings] Error:', error);
+> 507 |     throw new Error(
+      |           ^
+  508 |       `Failed to generate item embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`
+  509 |     );
+  510 |   }
+Stack trace: Error: Failed to generate item embeddings: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent: [404 Not Found] models/gemini-1.5-flash-latest is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at generateItemEmbeddings (webpack-internal:///(rsc)/./src/lib/ai/embeddings.ts:308:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async POST (webpack-internal:///(rsc)/./src/app/api/ai/index-item/route.ts:135:28)
+    at async AppRouteRouteModule.do (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:37913)
+    at async AppRouteRouteModule.handle (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:45132)
+    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:236:38)
+    at async AppRouteRouteModule.handleResponse (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:19:132579)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:298:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:352:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1415:9)
+    at async DevServer.renderPageComponent (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1467:24)
+    at async DevServer.renderToResponseImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1517:32)
+    at async DevServer.pipeImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1023:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/next-server.js:394:17)
+    at async DevServer.handleRequestImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:914:17)
+    at async /Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:373:20
+    at async Span.traceAsyncFn (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:369:24)
+    at async invokeRender (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:436:24)
+    at async requestHandlerImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:484:13)
+    at async Server.requestListener (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/start-server.js:226:13)
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+
+ POST /api/ai/index-item 500 in 254ms (compile: 5ms, render: 249ms)
+ GET /listings?q=jacket 200 in 196ms (compile: 4ms, render: 192ms)
+ GET / 200 in 24ms (compile: 7ms, render: 17ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 407ms (compile: 1251µs, render: 406ms)
+ GET /listings 200 in 44ms (compile: 7ms, render: 38ms)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /listings?q=jacket 200 in 57ms (compile: 44ms, render: 13ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+ GET /listings 200 in 9ms (compile: 3ms, render: 6ms)
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 487ms (compile: 44ms, render: 443ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_gemini_pro_vision
+  - title: Final Test
+  - description: Testing with gemini-pro-vision...
+  - images: 1
+[index-item] Indexing item: 0xtest_gemini_pro_vision
+[index-item] Title: Final Test
+[index-item] Images: 1
+[index-item] Generating embeddings...
+[embedImage] Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent: [404 Not Found] models/gemini-pro-vision is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at async embedImage (src/lib/ai/embeddings.ts:253:26)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:477:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  251 | Be specific and detailed. Output only the description, no other text.`;
+  252 |
+> 253 |     const visionResult = await visionModel.generateContent([
+      |                          ^
+  254 |       descriptionPrompt,
+  255 |       {
+  256 |         inlineData: { {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+[generateItemEmbeddings] Error: Error: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent: [404 Not Found] models/gemini-pro-vision is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at embedImage (src/lib/ai/embeddings.ts:275:11)
+    at async generateItemEmbeddings (src/lib/ai/embeddings.ts:477:7)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  273 |   } catch (error) {
+  274 |     console.error('[embedImage] Error:', error);
+> 275 |     throw new Error(
+      |           ^
+  276 |       `Failed to generate image embedding: ${error instanceof Error ? error.message : 'Unknown error'}`
+  277 |     );
+  278 |   }
+
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+🔴 [index-item] ERROR OCCURRED
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+Error details: Error: Failed to generate item embeddings: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent: [404 Not Found] models/gemini-pro-vision is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at generateItemEmbeddings (src/lib/ai/embeddings.ts:507:11)
+    at async POST (src/app/api/ai/index-item/route.ts:155:24)
+  505 |   } catch (error) {
+  506 |     console.error('[generateItemEmbeddings] Error:', error);
+> 507 |     throw new Error(
+      |           ^
+  508 |       `Failed to generate item embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`
+  509 |     );
+  510 |   }
+Stack trace: Error: Failed to generate item embeddings: Failed to generate image embedding: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent: [404 Not Found] models/gemini-pro-vision is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at generateItemEmbeddings (webpack-internal:///(rsc)/./src/lib/ai/embeddings.ts:308:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async POST (webpack-internal:///(rsc)/./src/app/api/ai/index-item/route.ts:135:28)
+    at async AppRouteRouteModule.do (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:37913)
+    at async AppRouteRouteModule.handle (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:23:45132)
+    at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:236:38)
+    at async AppRouteRouteModule.handleResponse (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:19:132579)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:298:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fai%2Findex-item%2Froute&page=%2Fapi%2Fai%2Findex-item%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fai%2Findex-item%2Froute.ts&appDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend%2Fsrc%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Frijulg%2Fsui%2FThriftChain%2Ffrontend&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:352:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1415:9)
+    at async DevServer.renderPageComponent (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1467:24)
+    at async DevServer.renderToResponseImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1517:32)
+    at async DevServer.pipeImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:1023:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/next-server.js:394:17)
+    at async DevServer.handleRequestImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/base-server.js:914:17)
+    at async /Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:373:20
+    at async Span.traceAsyncFn (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/dev/next-dev-server.js:369:24)
+    at async invokeRender (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:436:24)
+    at async requestHandlerImpl (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/router-server.js:484:13)
+    at async Server.requestListener (/Users/rijulg/sui/ThriftChain/frontend/node_modules/next/dist/server/lib/start-server.js:226:13)
+🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+
+ POST /api/ai/index-item 500 in 220ms (compile: 7ms, render: 212ms)
+[embedTextAndImage] Error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent: [404 Not Found] models/gemini-pro-vision is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at async eval (src/lib/ai/embeddings.ts:371:30)
+    at async embedTextAndImage (src/lib/ai/embeddings.ts:367:31)
+  369 |         const descriptionPrompt = `Describe this marketplace item image in detail. Include colors, style, material, condition, and notable features. Output only the description.`;
+  370 |
+> 371 |         const visionResult = await visionModel.generateContent([
+      |                              ^
+  372 |           descriptionPrompt,
+  373 |           {
+  374 |             inlineData: { {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+Falling back to text-only embedding due to error
+ GET /listings?q=jacket 200 in 46ms (compile: 34ms, render: 12ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+ GET /listings 200 in 10ms (compile: 1989µs, render: 8ms)
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 957ms (compile: 31ms, render: 926ms)
+ GET /listings?q=jacket 200 in 53ms (compile: 32ms, render: 21ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+ GET /listings 200 in 8ms (compile: 1433µs, render: 6ms)
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 437ms (compile: 17ms, render: 419ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_text_only_mvp
+  - title: Vintage Leather Jacket
+  - description: Brown leather jacket in excellent condition, size ...
+  - images: 1
+[index-item] Indexing item: 0xtest_text_only_mvp
+[index-item] Title: Vintage Leather Jacket
+[index-item] Images: 1
+[index-item] Generating embeddings...
+[embedImage] Skipping image processing (MVP), using placeholder
+[embedTextAndImage] Skipping image processing (MVP), using text only
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 473ms (compile: 3ms, render: 470ms)
+ GET /listings?q=jacket 200 in 223ms (compile: 17ms, render: 206ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 505ms (compile: 1699µs, render: 503ms)
+ GET /listings?q=jacket 200 in 24ms (compile: 6ms, render: 18ms)
+[search] Query: "jacket"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 359ms (compile: 2ms, render: 357ms)
+ GET /list-item 200 in 50ms (compile: 28ms, render: 23ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xca59f9cf90a948fb0c8c7ab61706fbcf39bc0f8bbb0210ebd1bd6bdb55a66fd0
+  - title: Zara Crop Top
+  - description: A crop top from Zara! White, patterned (plaid)....
+  - images: 2
+[index-item] Indexing item: 0xca59f9cf90a948fb0c8c7ab61706fbcf39bc0f8bbb0210ebd1bd6bdb55a66fd0
+[index-item] Title: Zara Crop Top
+[index-item] Images: 2
+[index-item] Generating embeddings...
+[embedImage] Skipping image processing (MVP), using placeholder
+[embedTextAndImage] Skipping image processing (MVP), using text only
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 676ms (compile: 14ms, render: 662ms)
+ GET /listings 200 in 43ms (compile: 21ms, render: 23ms)
+ GET /listings?q=zara 200 in 29ms (compile: 6ms, render: 23ms)
+[search] Query: "zara"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 426ms (compile: 3ms, render: 424ms)
+ GET /listings?q=crop+top 200 in 27ms (compile: 7ms, render: 20ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 412ms (compile: 2ms, render: 410ms)
+ GET /listings?q=crop+top 200 in 27ms (compile: 9ms, render: 18ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 685ms (compile: 7ms, render: 679ms)
+ GET /listings?q=crop%20top 200 in 141ms (compile: 28ms, render: 113ms)
+ GET /listings 200 in 32ms (compile: 1916µs, render: 30ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 699ms (compile: 1375µs, render: 698ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_leather_jacket_001
+  - title: Vintage Leather Jacket
+  - description: Classic brown leather motorcycle jacket from the 8...
+  - images: 0
+[index-item] Indexing item: 0xtest_leather_jacket_001
+[index-item] Title: Vintage Leather Jacket
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 794ms (compile: 11ms, render: 783ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_denim_jeans_002
+  - title: Levi's 501 Jeans
+  - description: Blue denim jeans, size 32W 34L, slightly worn...
+  - images: 0
+[index-item] Indexing item: 0xtest_denim_jeans_002
+[index-item] Title: Levi's 501 Jeans
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 645ms (compile: 4ms, render: 642ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_winter_coat_003
+  - title: Winter Parka
+  - description: Warm black winter coat with fur hood, perfect for ...
+  - images: 0
+[index-item] Indexing item: 0xtest_winter_coat_003
+[index-item] Title: Winter Parka
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 472ms (compile: 2ms, render: 470ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_running_shoes_004
+  - title: Nike Running Shoes
+  - description: Athletic sneakers for running and sports, size 10,...
+  - images: 0
+[index-item] Indexing item: 0xtest_running_shoes_004
+[index-item] Title: Nike Running Shoes
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 560ms (compile: 3ms, render: 557ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_summer_dress_005
+  - title: Floral Summer Dress
+  - description: Light and airy sundress with flower patterns, size...
+  - images: 0
+[index-item] Indexing item: 0xtest_summer_dress_005
+[index-item] Title: Floral Summer Dress
+[index-item] Images: 0
+[index-item] Generating embeddings...
+ GET /listings?q=crop+top 200 in 46ms (compile: 32ms, render: 14ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 922ms (compile: 321ms, render: 601ms)
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 615ms (compile: 238ms, render: 377ms)
+[search] Query: "motorcycle jacket"
+[search] Config: threshold=0.5, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 502ms (compile: 4ms, render: 498ms)
+[search] Query: "pants"
+[search] Config: threshold=0.5, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 426ms (compile: 1464µs, render: 425ms)
+[search] Query: "warm clothing"
+[search] Config: threshold=0.5, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 467ms (compile: 2ms, render: 465ms)
+[search] Query: "sneakers"
+[search] Config: threshold=0.5, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 455ms (compile: 1317µs, render: 453ms)
+[search] Query: "floral clothing"
+[search] Config: threshold=0.5, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 331ms (compile: 3ms, render: 327ms)
+ GET /listings?q=crop+top 200 in 54ms (compile: 34ms, render: 20ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 456ms (compile: 40ms, render: 416ms)
+ GET /listings?q=crop+top 200 in 12ms (compile: 3ms, render: 9ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 453ms (compile: 3ms, render: 450ms)
+ GET /listings?q=crop+top 200 in 8ms (compile: 1106µs, render: 6ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 351ms (compile: 1429µs, render: 349ms)
+ GET /listings?q=crop+top 200 in 22ms (compile: 8ms, render: 13ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 465ms (compile: 13ms, render: 452ms)
+ GET /listings?q=crop+top 200 in 34ms (compile: 7ms, render: 27ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 483ms (compile: 6ms, render: 477ms)
+ GET /listings?q=crop+top 200 in 26ms (compile: 5ms, render: 20ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 392ms (compile: 6ms, render: 386ms)
+ GET /listings?q=crop+top 200 in 60ms (compile: 45ms, render: 15ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.5, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 520ms (compile: 79ms, render: 441ms)
+ GET /listings?q=crop+top 200 in 123ms (compile: 80ms, render: 43ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.3, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 6 }
+[search] ✅ Found 6 matching items
+ POST /api/ai/search 200 in 434ms (compile: 33ms, render: 402ms)
+ GET /listings?q=crop+top 200 in 23ms (compile: 7ms, render: 16ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.3, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 6 }
+[search] ✅ Found 6 matching items
+ POST /api/ai/search 200 in 400ms (compile: 2ms, render: 398ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_leather_jacket_001
+  - title: Vintage Leather Jacket
+  - description: Classic brown leather motorcycle jacket from the 8...
+  - images: 0
+[index-item] Indexing item: 0xtest_leather_jacket_001
+[index-item] Title: Vintage Leather Jacket
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 735ms (compile: 240ms, render: 496ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_denim_jeans_002
+  - title: Levi's 501 Jeans
+  - description: Blue denim jeans, size 32W 34L, slightly worn...
+  - images: 0
+[index-item] Indexing item: 0xtest_denim_jeans_002
+[index-item] Title: Levi's 501 Jeans
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 383ms (compile: 3ms, render: 381ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_winter_coat_003
+  - title: Winter Parka
+  - description: Warm black winter coat with fur hood, perfect for ...
+  - images: 0
+[index-item] Indexing item: 0xtest_winter_coat_003
+[index-item] Title: Winter Parka
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 391ms (compile: 2ms, render: 389ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_running_shoes_004
+  - title: Nike Running Shoes
+  - description: Athletic sneakers for running and sports, size 10,...
+  - images: 0
+[index-item] Indexing item: 0xtest_running_shoes_004
+[index-item] Title: Nike Running Shoes
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 754ms (compile: 2ms, render: 752ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_summer_dress_005
+  - title: Floral Summer Dress
+  - description: Light and airy sundress with flower patterns, size...
+  - images: 0
+[index-item] Indexing item: 0xtest_summer_dress_005
+[index-item] Title: Floral Summer Dress
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 521ms (compile: 3ms, render: 518ms)
+[search] Query: "motorcycle jacket"
+[search] Config: threshold=0.5, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 343ms (compile: 7ms, render: 336ms)
+[search] Query: "pants"
+[search] Config: threshold=0.5, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 371ms (compile: 4ms, render: 368ms)
+[search] Query: "warm clothing"
+[search] Config: threshold=0.5, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 361ms (compile: 3ms, render: 357ms)
+[search] Query: "sneakers"
+[search] Config: threshold=0.5, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 365ms (compile: 1839µs, render: 363ms)
+[search] Query: "floral clothing"
+[search] Config: threshold=0.5, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 352ms (compile: 2ms, render: 350ms)
+ GET /listings?q=crop+top 200 in 31ms (compile: 19ms, render: 12ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.3, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 6 }
+[search] ✅ Found 6 matching items
+ POST /api/ai/search 200 in 645ms (compile: 2ms, render: 642ms)
+ GET /listings?q=crop+top 200 in 17ms (compile: 5ms, render: 12ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.3, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 6 }
+[search] ✅ Found 6 matching items
+ POST /api/ai/search 200 in 572ms (compile: 6ms, render: 566ms)
+ GET /listings 200 in 30ms (compile: 7ms, render: 23ms)
+ GET /listings 200 in 25ms (compile: 5ms, render: 21ms)
+ GET /listings 200 in 35ms (compile: 10ms, render: 25ms)
+ GET /listings 200 in 10ms (compile: 1763µs, render: 9ms)
+ GET /listings 200 in 9ms (compile: 1630µs, render: 8ms)
+ GET /listings 200 in 14ms (compile: 1888µs, render: 12ms)
+ GET /listings 200 in 17ms (compile: 3ms, render: 14ms)
+ GET /listings 200 in 92ms (compile: 45ms, render: 47ms)
+ GET /listings 200 in 10ms (compile: 2ms, render: 8ms)
+ GET /listings 200 in 11ms (compile: 1607µs, render: 9ms)
+ GET /listings 200 in 28ms (compile: 1757µs, render: 26ms)
+ GET /listings 200 in 21ms (compile: 5ms, render: 16ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_leather_jacket_001
+  - title: Vintage Leather Jacket
+  - description: Classic brown leather motorcycle jacket from the 8...
+  - images: 0
+[index-item] Indexing item: 0xtest_leather_jacket_001
+[index-item] Title: Vintage Leather Jacket
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 467ms (compile: 1756µs, render: 465ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_denim_jeans_002
+  - title: Levi's 501 Jeans
+  - description: Blue denim jeans, size 32W 34L, slightly worn...
+  - images: 0
+[index-item] Indexing item: 0xtest_denim_jeans_002
+[index-item] Title: Levi's 501 Jeans
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 379ms (compile: 3ms, render: 377ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_winter_coat_003
+  - title: Winter Parka
+  - description: Warm black winter coat with fur hood, perfect for ...
+  - images: 0
+[index-item] Indexing item: 0xtest_winter_coat_003
+[index-item] Title: Winter Parka
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 384ms (compile: 3ms, render: 380ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_running_shoes_004
+  - title: Nike Running Shoes
+  - description: Athletic sneakers for running and sports, size 10,...
+  - images: 0
+[index-item] Indexing item: 0xtest_running_shoes_004
+[index-item] Title: Nike Running Shoes
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 374ms (compile: 4ms, render: 370ms)
+
+============================================================
+🔵 [index-item] API CALLED
+============================================================
+📥 Request received:
+  - sui_object_id: 0xtest_summer_dress_005
+  - title: Floral Summer Dress
+  - description: Light and airy sundress with flower patterns, size...
+  - images: 0
+[index-item] Indexing item: 0xtest_summer_dress_005
+[index-item] Title: Floral Summer Dress
+[index-item] Images: 0
+[index-item] Generating embeddings...
+[index-item] Embeddings generated: { titleDim: 768, descDim: 768, imageDim: 768, combinedDim: 768 }
+[index-item] Storing embeddings in Supabase...
+[storeEmbeddingsInSupabase] ✅ Embeddings stored successfully
+[index-item] ✅ Indexing complete!
+ POST /api/ai/index-item 200 in 382ms (compile: 3ms, render: 378ms)
+[search] Query: "motorcycle jacket"
+[search] Config: threshold=0.3, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 358ms (compile: 4ms, render: 354ms)
+[search] Query: "pants"
+[search] Config: threshold=0.3, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 350ms (compile: 2ms, render: 348ms)
+[search] Query: "warm clothing"
+[search] Config: threshold=0.3, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 332ms (compile: 1282µs, render: 331ms)
+[search] Query: "sneakers"
+[search] Config: threshold=0.3, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 383ms (compile: 3ms, render: 380ms)
+[search] Query: "floral clothing"
+[search] Config: threshold=0.3, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 330ms (compile: 2ms, render: 328ms)
+[search] Query: "Vintage Leather Jacket"
+[search] Config: threshold=0.3, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 406ms (compile: 6ms, render: 399ms)
+[search] Query: "Levis 501 Jeans"
+[search] Config: threshold=0.3, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 330ms (compile: 1086µs, render: 329ms)
+[search] Query: "Winter Parka"
+[search] Config: threshold=0.3, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 1 }
+[search] ✅ Found 1 matching items
+ POST /api/ai/search 200 in 327ms (compile: 2ms, render: 325ms)
+[search] Query: "Nike Running Shoes"
+[search] Config: threshold=0.3, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 323ms (compile: 3ms, render: 321ms)
+[search] Query: "Floral Summer Dress"
+[search] Config: threshold=0.3, max=10, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 0 }
+[search] ✅ Found 0 matching items
+ POST /api/ai/search 200 in 330ms (compile: 2ms, render: 328ms)
+ GET /listings?q=crop+top 200 in 11ms (compile: 1849µs, render: 9ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.3, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 6 }
+[search] ✅ Found 6 matching items
+ POST /api/ai/search 200 in 381ms (compile: 3ms, render: 378ms)
+ GET /listings?q=crop+top 200 in 14ms (compile: 5ms, render: 9ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.3, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 6 }
+[search] ✅ Found 6 matching items
+ POST /api/ai/search 200 in 466ms (compile: 5ms, render: 462ms)
+ GET /listings?q=crop+top 200 in 33ms (compile: 9ms, render: 24ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.3, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 6 }
+[search] ✅ Found 6 matching items
+ POST /api/ai/search 200 in 614ms (compile: 2ms, render: 611ms)
+ GET /listings?q=crop+top 200 in 23ms (compile: 6ms, render: 16ms)
+[search] Query: "crop top"
+[search] Config: threshold=0.3, max=50, type=combined
+[search] Generating query embedding...
+[search] Query embedding generated: 768 dimensions
+[search] Searching Supabase for similar items...
+[searchSupabase] ✅ Found results: { count: 6 }
+[search] ✅ Found 6 matching items
+ POST /api/ai/search 200 in 373ms (compile: 5ms, render: 368ms)
+ GET /listings 200 in 25ms (compile: 6ms, render: 20ms)
+ GET /items/0x0792ea8535d9a58aac4fb4e2ee8cb1c9747df50da51559b66718e1d34a93a09b 200 in 764ms (compile: 746ms, render: 18ms)
+ GET /list-item 200 in 41ms (compile: 23ms, render: 18ms)
+ GET /list-item 200 in 15ms (compile: 3ms, render: 12ms)
+ GET /list-item 200 in 39ms (compile: 21ms, render: 18ms)
+ GET /list-item 200 in 10ms (compile: 1925µs, render: 8ms)
+ GET /list-item 200 in 29ms (compile: 5ms, render: 24ms)
+ GET /list-item 200 in 29ms (compile: 7ms, render: 22ms)

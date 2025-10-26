@@ -36,6 +36,16 @@ export default function Home() {
     loadItems()
   }, [])
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    const query = q.trim()
+    if (query) {
+      router.push(`/listings?q=${encodeURIComponent(query)}`)
+    } else {
+      router.push('/listings')
+    }
+  }
+
   return (
     <div className="max-h-screen">
       <section className="mx-auto max-w-5xl px-6 pt-24">
@@ -44,26 +54,22 @@ export default function Home() {
             Discover and trade on-chain thrift finds
           </h1>
           <p className="mt-3 opacity-80 max-w-2xl">
-            ThriftChain is a decentralized marketplace on Sui. Own your listings, store images on Walrus, and search by meaning using vectors.
+            ThriftChain is a decentralized marketplace on Sui. Own your listings, store images on Walrus, and search by meaning using AI-powered semantic search.
           </p>
         </div>
 
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
           <form
             className="flex-1 flex items-center gap-2 retro-card retro-shadow px-3 py-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              const query = q.trim()
-              router.push(`/listings${query ? `?q=${encodeURIComponent(query)}` : ''}`)
-            }}
+            onSubmit={handleSearch}
           >
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search jackets, shoes, tags…"
+              placeholder="Search by meaning: 'vintage leather jacket'"
               className="flex-1 bg-transparent outline-none text-base"
             />
-            <button className="text-sm px-4 py-2 bg-black text-white dark:bg-white dark:text-black retro-btn">
+            <button type="submit" className="text-sm px-4 py-2 bg-black text-white dark:bg-white dark:text-black retro-btn">
               Search
             </button>
           </form>

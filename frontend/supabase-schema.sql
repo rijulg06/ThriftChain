@@ -1,5 +1,5 @@
 -- ============================================
--- ThriftChain Supabase Schema (6 Columns Only)
+-- ThriftChain Supabase Schema (Gemini AI)
 -- ============================================
 -- This table links Sui blockchain items with AI embeddings
 -- for semantic search. Walrus blob IDs are stored on-chain.
@@ -26,14 +26,14 @@ CREATE TABLE item_search_index (
     -- Primary key: Sui blockchain object ID
     sui_object_id TEXT PRIMARY KEY,
 
-    -- AI embeddings for semantic search (OpenAI ada-002: 1536 dimensions)
-    title_embedding VECTOR(1536),
-    description_embedding VECTOR(1536),
-    image_embedding VECTOR(1536),
-    combined_embedding VECTOR(1536),
+    -- AI embeddings for semantic search (Gemini: 768 dimensions)
+    title_embedding VECTOR(768),
+    description_embedding VECTOR(768),
+    image_embedding VECTOR(768),
+    combined_embedding VECTOR(768),
 
     -- Timestamp
-    time TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    indexed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- ============================================
@@ -76,7 +76,7 @@ CREATE INDEX idx_combined_embedding ON item_search_index
     USING ivfflat (combined_embedding vector_cosine_ops);
 
 -- Time-based index for sorting by recency
-CREATE INDEX idx_time ON item_search_index(time DESC);
+CREATE INDEX idx_time ON item_search_index(indexed_at DESC);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -95,24 +95,45 @@ CREATE POLICY "Allow all operations"
 -- HELPER FUNCTION: Semantic Search
 -- ============================================
 
+-- Drop existing function if it exists (necessary when changing return types)
+DROP FUNCTION IF EXISTS search_items_by_embedding(VECTOR, FLOAT, INT, BOOLEAN);
+DROP FUNCTION IF EXISTS search_items_by_embedding(VECTOR, DOUBLE PRECISION, INT, BOOLEAN);
+DROP FUNCTION IF EXISTS search_items_by_embedding;
+
 CREATE OR REPLACE FUNCTION search_items_by_embedding(
-    query_embedding VECTOR(1536),
-    match_threshold FLOAT DEFAULT 0.7,
-    match_count INT DEFAULT 20
+    query_embedding VECTOR(768),
+    similarity_threshold FLOAT DEFAULT 0.5,
+    max_results INT DEFAULT 20,
+    use_combined BOOLEAN DEFAULT true
 )
 RETURNS TABLE (
     sui_object_id TEXT,
     similarity FLOAT
 ) AS $$
 BEGIN
-    RETURN QUERY
-    SELECT
-        i.sui_object_id,
-        1 - (i.combined_embedding <=> query_embedding) AS similarity
-    FROM item_search_index i
-    WHERE 1 - (i.combined_embedding <=> query_embedding) > match_threshold
-    ORDER BY i.combined_embedding <=> query_embedding
-    LIMIT match_count;
+    IF use_combined THEN
+        -- Search using combined embedding (multimodal)
+        RETURN QUERY
+        SELECT
+            i.sui_object_id,
+            1 - (i.combined_embedding <=> query_embedding) AS similarity
+        FROM item_search_index i
+        WHERE i.combined_embedding IS NOT NULL
+            AND 1 - (i.combined_embedding <=> query_embedding) > similarity_threshold
+        ORDER BY i.combined_embedding <=> query_embedding
+        LIMIT max_results;
+    ELSE
+        -- Search using title embedding only (faster, text-only)
+        RETURN QUERY
+        SELECT
+            i.sui_object_id,
+            1 - (i.title_embedding <=> query_embedding) AS similarity
+        FROM item_search_index i
+        WHERE i.title_embedding IS NOT NULL
+            AND 1 - (i.title_embedding <=> query_embedding) > similarity_threshold
+        ORDER BY i.title_embedding <=> query_embedding
+        LIMIT max_results;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 

@@ -134,6 +134,8 @@ async function fetchTableEntries<T>(
     limit: options?.limit ?? 50,
   })
 
+  console.log(`[fetchTableEntries] Found ${dynamicFields.data.length} dynamic fields in table ${tableId}`)
+
   if (dynamicFields.data.length === 0) {
     return {
       data: [],
@@ -142,24 +144,48 @@ async function fetchTableEntries<T>(
     }
   }
 
+  // For Table<K, V> entries, we need to get the dynamic field objects
+  // Each dynamic field has the actual item data in its value
   const objects = await Promise.all(
-    dynamicFields.data.map(field =>
-      suiClient.getObject({
-        id: field.objectId,
-        options: {
-          showContent: true,
-          showType: true,
+    dynamicFields.data.map(async (field) => {
+      console.log(`[fetchTableEntries] Fetching dynamic field: ${field.objectId}`)
+
+      // Get the dynamic field object which contains the actual table entry
+      const fieldObj = await suiClient.getDynamicFieldObject({
+        parentId: tableId,
+        name: {
+          type: field.name.type,
+          value: field.name.value,
         },
       })
-    )
+
+      return fieldObj
+    })
   )
 
   const parsed = objects
-    .map(obj => parseFn(obj))
+    .map(obj => {
+      const result = parseFn(obj)
+      if (!result) {
+        console.warn('[fetchTableEntries] Failed to parse object:', obj)
+      }
+      return result
+    })
     .filter((item): item is T => item !== null)
 
+  // Deduplicate by objectId (in case of any issues with table queries)
+  const uniqueParsed = Array.from(
+    new Map(parsed.map(item => [(item as any).objectId, item])).values()
+  )
+
+  if (uniqueParsed.length !== parsed.length) {
+    console.warn(`[fetchTableEntries] Removed ${parsed.length - uniqueParsed.length} duplicate items`)
+  }
+
+  console.log(`[fetchTableEntries] Successfully parsed ${uniqueParsed.length} unique items`)
+
   return {
-    data: parsed,
+    data: uniqueParsed,
     nextCursor: dynamicFields.nextCursor ?? null,
     hasNextPage: dynamicFields.hasNextPage,
   }
@@ -221,26 +247,51 @@ export async function getAllItems(
 /**
  * Get a single item by its Sui object ID
  *
- * @param objectId - Sui object ID of the item
+ * Note: Items are stored in a Table, so we need to fetch from the table using dynamic field lookup
+ *
+ * @param objectId - Sui object ID of the item (the item's UID.id value)
  * @returns Item data or null if not found
  */
 export async function getItemById(objectId: string): Promise<ThriftItemObject | null> {
   try {
-    const response = await suiClient.getObject({
-      id: objectId,
-      options: {
-        showContent: true,
-        showType: true,
-      },
-    })
+    console.log(`[getItemById] Fetching item with ID: ${objectId}`)
 
-    if (!response.data) {
-      return null
+    // Get the marketplace tables
+    const { itemsTableId } = await getMarketplaceTables()
+
+    // Try to get the item directly from the table using its ID as the key
+    try {
+      const response = await suiClient.getDynamicFieldObject({
+        parentId: itemsTableId,
+        name: {
+          type: '0x2::object::ID',
+          value: objectId,
+        },
+      })
+
+      if (response.data) {
+        const item = parseThriftItemObject(response)
+        console.log(`[getItemById] Found item:`, item?.fields.title)
+        return item
+      }
+    } catch (err) {
+      console.warn(`[getItemById] Direct lookup failed, trying full table scan:`, err)
     }
 
-    return parseThriftItemObject(response)
+    // Fallback: If direct lookup fails, scan all items
+    // This is less efficient but handles edge cases
+    const allItems = await getAllItems()
+    const item = allItems.data.find(item => item.objectId === objectId)
+
+    if (item) {
+      console.log(`[getItemById] Found item via table scan:`, item.fields.title)
+      return item
+    }
+
+    console.warn(`[getItemById] Item not found: ${objectId}`)
+    return null
   } catch (error) {
-    console.error(`Error fetching item ${objectId}:`, error)
+    console.error(`[getItemById] Error fetching item ${objectId}:`, error)
     return null
   }
 }
@@ -451,19 +502,33 @@ function parseThriftItemObject(response: SuiObjectResponse): ThriftItemObject | 
     const data = response.data
 
     if (!data?.content || data.content.dataType !== 'moveObject') {
+      console.warn('[parseThriftItemObject] Invalid data type:', data?.content?.dataType)
       return null
     }
 
-    const fields = data.content.fields as ThriftItemObject['fields']
+    const fields = data.content.fields as any
+
+    // For items stored in Table, the actual item is in the 'value' field of the dynamic field
+    // Check if this is a dynamic field wrapper
+    const itemFields = fields.value?.fields || fields
+
+    // Validate required fields
+    if (!itemFields.title || !itemFields.price || !itemFields.seller) {
+      console.warn('[parseThriftItemObject] Missing required fields:', itemFields)
+      return null
+    }
+
+    // For items in a Table, use the item's internal ID, not the dynamic field's object ID
+    const itemId = itemFields.id?.id || data.objectId
 
     return {
-      objectId: data.objectId,
+      objectId: itemId,
       version: data.version,
       digest: data.digest,
-      fields,
+      fields: itemFields as ThriftItemObject['fields'],
     }
   } catch (error) {
-    console.error('Error parsing ThriftItem:', error)
+    console.error('[parseThriftItemObject] Error parsing ThriftItem:', error, response)
     return null
   }
 }
@@ -479,13 +544,16 @@ function parseOfferObject(response: SuiObjectResponse): OfferObject | null {
       return null
     }
 
-    const fields = data.content.fields as OfferObject['fields']
+    const fields = data.content.fields as any
+
+    // For offers stored in Table, the actual offer is in the 'value' field of the dynamic field
+    const offerFields = fields.value?.fields || fields
 
     return {
       objectId: data.objectId,
       version: data.version,
       digest: data.digest,
-      fields,
+      fields: offerFields as OfferObject['fields'],
     }
   } catch (error) {
     console.error('Error parsing Offer:', error)
@@ -504,13 +572,16 @@ function parseEscrowObject(response: SuiObjectResponse): EscrowObject | null {
       return null
     }
 
-    const fields = data.content.fields as EscrowObject['fields']
+    const fields = data.content.fields as any
+
+    // For escrows stored in Table, the actual escrow is in the 'value' field of the dynamic field
+    const escrowFields = fields.value?.fields || fields
 
     return {
       objectId: data.objectId,
       version: data.version,
       digest: data.digest,
-      fields,
+      fields: escrowFields as EscrowObject['fields'],
     }
   } catch (error) {
     console.error('Error parsing Escrow:', error)

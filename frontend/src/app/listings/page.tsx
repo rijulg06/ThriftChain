@@ -1,39 +1,81 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { ItemCard, ItemCardSkeleton } from "@/components/ItemCard"
-import { getAllItems } from "@/lib/sui/queries"
+import { getAllItems, getItemsByIds } from "@/lib/sui/queries"
 import { ItemStatus } from "@/lib/types/sui-objects"
 import type { ItemCardProps } from "@/components/ItemCard"
 
 /**
- * Listings Page - Browse all marketplace items
- * 
- * Current: Loads on-chain data from Sui marketplace shared object
+ * Listings Page - Browse all marketplace items with AI-powered search
  *
- * Architecture:
- * - Uses getAllItems() to fetch shared table entries
- * - Maps results to ItemCardProps for UI components
+ * Features:
+ * - Browse all items (no query)
+ * - AI semantic search (with ?q= query parameter)
  * - Responsive grid layout
  * - Loading states with skeleton loaders
  * - Empty state handling
  */
 export default function ListingsPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [items, setItems] = useState<ItemCardProps[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
 
   useEffect(() => {
-    loadItems()
-  }, [])
+    const query = searchParams.get('q')
+    setSearchQuery(query || '')
+    loadItems(query || '')
+  }, [searchParams])
 
-  const loadItems = async () => {
+  const loadItems = async (query: string) => {
     setLoading(true)
     setError(null)
-    
+
     try {
-      const response = await getAllItems(undefined, { limit: 100 })
-      const activeItems = response.data.filter(item => item.fields.status === ItemStatus.Active)
+      let activeItems
+
+      if (query.trim()) {
+        // AI Search mode
+        console.log(`🔍 AI Search: "${query}"`)
+
+        // Call AI search API
+        const searchResponse = await fetch('/api/ai/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            similarityThreshold: 0.3,  // Lower threshold for better recall
+            maxResults: 50,
+            useCombined: true,
+          }),
+        })
+
+        if (!searchResponse.ok) {
+          throw new Error('Search failed')
+        }
+
+        const searchResult = await searchResponse.json()
+        console.log(`✓ Found ${searchResult.count} matching items`)
+
+        if (searchResult.results.length === 0) {
+          setItems([])
+          setLoading(false)
+          return
+        }
+
+        // Fetch items from blockchain using search results
+        const itemsResponse = await getItemsByIds(searchResult.results)
+        activeItems = itemsResponse.filter(item => item && item.fields.status === ItemStatus.Active)
+      } else {
+        // Browse all mode
+        console.log('📋 Browsing all items')
+        const response = await getAllItems(undefined, { limit: 100 })
+        activeItems = response.data.filter(item => item.fields.status === ItemStatus.Active)
+      }
 
       const mapped: ItemCardProps[] = activeItems.map(item => ({
         objectId: item.objectId,
@@ -53,31 +95,73 @@ export default function ListingsPage() {
     }
   }
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    const query = searchQuery.trim()
+    if (query) {
+      router.push(`/listings?q=${encodeURIComponent(query)}`)
+    } else {
+      router.push('/listings')
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="retro-card retro-shadow p-6 mb-8">
-          <h1 className="text-4xl font-black mb-2">Browse Listings</h1>
+          <h1 className="text-4xl font-black mb-2">
+            {searchParams.get('q') ? 'Search Results' : 'Browse Listings'}
+          </h1>
           <p className="text-lg opacity-80">
-            Discover unique thrifted items on the blockchain
+            {searchParams.get('q')
+              ? `AI-powered semantic search for: "${searchParams.get('q')}"`
+              : 'Discover unique thrifted items on the blockchain'}
           </p>
-          
+
           {/* Stats */}
           {!loading && items.length > 0 && (
             <div className="mt-4 pt-4 border-t-2 border-black border-dashed">
               <div className="flex gap-6 text-sm">
                 <div>
                   <span className="font-bold">{items.length}</span>
-                  <span className="opacity-60 ml-1">items listed</span>
+                  <span className="opacity-60 ml-1">{searchParams.get('q') ? 'results found' : 'items listed'}</span>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Search & Filters Section - Placeholder for future */}
-        {/* TODO: Add search bar (Task 3.5) and filters (Task 5.6) */}
+        {/* Search Bar */}
+        <div className="retro-card retro-shadow p-4 mb-8">
+          <form onSubmit={handleSearch} className="flex gap-3">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by meaning: 'vintage leather jacket', 'warm winter coat'..."
+              className="flex-1 px-4 py-2 border-2 border-black retro-card outline-none focus:shadow-[2px_2px_0px_rgba(0,0,0,1)]"
+            />
+            <button
+              type="submit"
+              className="px-6 py-2 bg-black text-white retro-btn"
+            >
+              Search
+            </button>
+            {searchParams.get('q') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('')
+                  router.push('/listings')
+                }}
+                className="px-4 py-2 border-2 border-black retro-btn"
+              >
+                Clear
+              </button>
+            )}
+          </form>
+        </div>
 
         {/* Loading State */}
         {loading && (
@@ -106,17 +190,38 @@ export default function ListingsPage() {
         {/* Empty State */}
         {!loading && !error && items.length === 0 && (
           <div className="retro-card retro-shadow p-12 text-center">
-            <div className="text-6xl mb-4">📦</div>
-            <h2 className="text-2xl font-bold mb-2">No Items Yet</h2>
-            <p className="text-lg opacity-80 mb-6">
-              Be the first to list an item on ThriftChain!
-            </p>
-            <a
-              href="/list-item"
-              className="inline-block retro-btn retro-shadow px-8 py-3 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
-            >
-              List Your First Item
-            </a>
+            {searchParams.get('q') ? (
+              <>
+                <div className="text-6xl mb-4">🔍</div>
+                <h2 className="text-2xl font-bold mb-2">No Results Found</h2>
+                <p className="text-lg opacity-80 mb-6">
+                  Try different search terms or browse all items
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchQuery('')
+                    router.push('/listings')
+                  }}
+                  className="inline-block retro-btn retro-shadow px-8 py-3 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+                >
+                  Browse All Items
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="text-6xl mb-4">📦</div>
+                <h2 className="text-2xl font-bold mb-2">No Items Yet</h2>
+                <p className="text-lg opacity-80 mb-6">
+                  Be the first to list an item on ThriftChain!
+                </p>
+                <a
+                  href="/list-item"
+                  className="inline-block retro-btn retro-shadow px-8 py-3 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+                >
+                  List Your First Item
+                </a>
+              </>
+            )}
           </div>
         )}
 

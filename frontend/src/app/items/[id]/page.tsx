@@ -1,20 +1,19 @@
 "use client"
 
 import Image from "next/image"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, use } from "react"
 import { useRouter } from "next/navigation"
 import { useWallet } from "@suiet/wallet-kit"
 import { Button } from "@/components/ui/button"
 import { getItemById } from "@/lib/sui/queries"
 import type { ThriftItemObject } from "@/lib/types/sui-objects"
 import { mistToSui } from "@/lib/types/sui-objects"
+import { MakeOfferModal } from "@/components/MakeOfferModal"
+import { getWalrusBlobUrl } from "@/lib/walrus/upload"
 
 /**
  * Item Detail Page - View full item details
- * 
- * Current: Loads mock data from CSV
- * TODO: Replace with blockchain query getItemById(objectId)
- * 
+ *
  * Features:
  * - Full image gallery with thumbnails
  * - Complete item details (title, description, price, category, tags)
@@ -22,17 +21,19 @@ import { mistToSui } from "@/lib/types/sui-objects"
  * - Action buttons (Make Offer if not owner, Cancel Listing if owner)
  * - Retro-themed styling
  */
-export default function ItemDetailPage({ params }: { params: { id: string } }) {
+export default function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const { connected, account } = useWallet()
 
-  const { id } = params
+  // Unwrap params Promise (Next.js 15+)
+  const { id } = use(params)
 
   const [item, setItem] = useState<ThriftItemObject | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [imageError, setImageError] = useState(false)
+  const [makeOfferModalOpen, setMakeOfferModalOpen] = useState(false)
 
   const loadItem = useCallback(async () => {
     setLoading(true)
@@ -75,11 +76,13 @@ export default function ItemDetailPage({ params }: { params: { id: string } }) {
 
   // Get image URL (handles Walrus blob IDs and direct URLs)
   const getImageUrl = (imageId: string) => {
+    if (!imageId) return null
     if (imageId.startsWith('mock_blob_')) return null
     if (imageId.startsWith('http://') || imageId.startsWith('https://')) {
       return imageId
     }
-    return `https://aggregator.walrus-testnet.walrus.space/v1/${imageId}`
+    // Use the same helper function as ItemCard for consistency
+    return getWalrusBlobUrl(imageId)
   }
 
   // Check if current user is the owner
@@ -91,18 +94,13 @@ export default function ItemDetailPage({ params }: { params: { id: string } }) {
       alert('Please connect your wallet first')
       return
     }
-    // TODO: Implement offer modal (Task 2.8)
-    alert('Make Offer functionality coming soon!')
+    setMakeOfferModalOpen(true)
   }
 
-  // Handle Cancel Listing click
-  const handleCancelListing = () => {
-    if (!connected) {
-      alert('Please connect your wallet first')
-      return
-    }
-    // TODO: Implement cancel listing transaction
-    alert('Cancel Listing functionality coming soon!')
+  // Handle successful offer creation
+  const handleOfferSuccess = () => {
+    // Could refresh item data or redirect to stash page
+    router.push('/stash')
   }
 
   // Loading state
@@ -303,17 +301,13 @@ export default function ItemDetailPage({ params }: { params: { id: string } }) {
                   </Button>
                 </div>
               ) : isOwner ? (
-                <div className="space-y-3">
-                  <p className="text-sm opacity-80 mb-3">
-                    You own this item
+                <div className="text-center p-4">
+                  <p className="text-lg font-bold mb-2">
+                    This is your listing
                   </p>
-                  <Button
-                    onClick={handleCancelListing}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    Cancel Listing
-                  </Button>
+                  <p className="text-sm opacity-80">
+                    Buyers can make offers on this item
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -351,6 +345,19 @@ export default function ItemDetailPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </div>
+
+      {/* Make Offer Modal */}
+      {item && (
+        <MakeOfferModal
+          isOpen={makeOfferModalOpen}
+          onClose={() => setMakeOfferModalOpen(false)}
+          itemId={item.objectId}
+          itemTitle={item.fields.title}
+          itemPrice={item.fields.price}
+          sellerAddress={item.fields.seller}
+          onSuccess={handleOfferSuccess}
+        />
+      )}
     </div>
   )
 }

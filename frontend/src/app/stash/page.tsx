@@ -1,11 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@suiet/wallet-kit';
 import { toast } from 'sonner';
 import { LoginModal } from '@/components/LoginModal';
+import { getWalrusBlobUrl } from '@/lib/walrus/upload';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,22 +18,32 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  getMyOffersMade,
-  getMyOffersReceived,
-  getMyTransactions,
-  getMyListedItems,
-  mockAcceptOffer,
-  mockRejectOffer,
-  mockCounterOffer,
-  mockAcceptCounterOffer,
-  mockCancelOffer,
-  mockSubmitShipping,
-  mockSubmitBuyerShipping,
-  mockConfirmDelivery,
-  type MockOffer,
-  type MockTransaction,
-  type MyListedItem,
-} from '@/lib/data/mock-offers';
+  getItemsBySeller,
+  getOffersByBuyer,
+  getOffersBySeller,
+  getEscrowsByBuyer,
+  getItemsByIds,
+} from '@/lib/sui/queries';
+import { suiClient } from '@/lib/sui/client';
+import type { ThriftItemObject, OfferObject, EscrowObject } from '@/lib/types/sui-objects';
+import { mistToSui, OfferStatus, ItemStatus, EscrowStatus } from '@/lib/types/sui-objects';
+import { buildAcceptOfferTransaction, buildRejectOfferTransaction, buildCancelOfferTransaction } from '@/lib/sui/transactions';
+
+// UI-friendly data structures (adapted from blockchain objects)
+interface OfferWithItem extends OfferObject {
+  itemTitle: string;
+  itemImage: string;
+  itemPrice: string;
+}
+
+interface EscrowWithItem extends EscrowObject {
+  itemTitle: string;
+  itemImage: string;
+}
+
+interface ItemWithOffers extends ThriftItemObject {
+  offersCount: number;
+}
 
 type Tab = 'my-items' | 'my-offers' | 'transactions';
 
@@ -40,10 +51,10 @@ export default function StashPage() {
   const router = useRouter();
   const wallet = useWallet();
   const [activeTab, setActiveTab] = useState<Tab>('my-items');
-  const [myItems, setMyItems] = useState<MyListedItem[]>([]);
-  const [offersMade, setOffersMade] = useState<MockOffer[]>([]);
-  const [offersReceived, setOffersReceived] = useState<MockOffer[]>([]);
-  const [transactions, setTransactions] = useState<MockTransaction[]>([]);
+  const [myItems, setMyItems] = useState<ItemWithOffers[]>([]);
+  const [offersMade, setOffersMade] = useState<OfferWithItem[]>([]);
+  const [offersReceived, setOffersReceived] = useState<OfferWithItem[]>([]);
+  const [transactions, setTransactions] = useState<EscrowWithItem[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Alert dialog states
@@ -81,43 +92,149 @@ export default function StashPage() {
   // Login modal state
   const [loginModalOpen, setLoginModalOpen] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const loadData = useCallback(async () => {
+    if (!wallet.account?.address) {
+      console.warn('No wallet address available');
+      setLoading(false);
+      return;
+    }
 
-  const loadData = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with real blockchain queries
-      const items = getMyListedItems();
-      const made = getMyOffersMade();
-      const received = getMyOffersReceived();
-      const txs = getMyTransactions();
-      
-      setMyItems(items);
-      setOffersMade(made);
-      setOffersReceived(received);
-      setTransactions(txs);
+      const address = wallet.account.address;
+
+      // Fetch all data in parallel for better performance
+      const [items, madeOffers, receivedOffers, escrows] = await Promise.all([
+        getItemsBySeller(address),
+        getOffersByBuyer(address),
+        getOffersBySeller(address),
+        getEscrowsByBuyer(address),
+      ]);
+
+      // Get unique item IDs from offers and escrows to fetch item details
+      const offerItemIds = [...madeOffers, ...receivedOffers].map(o => o.fields.item_id);
+      const escrowItemIds = escrows.map(e => e.fields.item_id);
+      const allItemIds = [...new Set([...offerItemIds, ...escrowItemIds])];
+
+      // Fetch item details for offers and escrows
+      const itemDetails = allItemIds.length > 0
+        ? await getItemsByIds(allItemIds)
+        : [];
+
+      // Create lookup map for item details
+      const itemMap = new Map(itemDetails.map(item => [item.objectId, item]));
+
+      // Helper to get Walrus image URL
+      const getImageUrl = (item: ThriftItemObject | undefined) => {
+        if (!item || !item.fields.walrus_image_ids || item.fields.walrus_image_ids.length === 0) {
+          return '/placeholder-image.png'; // Fallback image
+        }
+        const blobId = item.fields.walrus_image_ids[0];
+        return getWalrusBlobUrl(blobId);
+      };
+
+      // Map items with offer counts
+      const receivedOffersByItem = new Map<string, number>();
+      receivedOffers.forEach(offer => {
+        const itemId = offer.fields.item_id;
+        receivedOffersByItem.set(itemId, (receivedOffersByItem.get(itemId) || 0) + 1);
+      });
+
+      const itemsWithOffers: ItemWithOffers[] = items.map(item => ({
+        ...item,
+        offersCount: receivedOffersByItem.get(item.objectId) || 0,
+      }));
+
+      // Map offers made with item details
+      const offersMadeWithItems: OfferWithItem[] = madeOffers.map(offer => {
+        const item = itemMap.get(offer.fields.item_id);
+        return {
+          ...offer,
+          itemTitle: item?.fields.title || 'Unknown Item',
+          itemImage: getImageUrl(item),
+          itemPrice: item?.fields.price || '0',
+        };
+      });
+
+      // Map offers received with item details
+      const offersReceivedWithItems: OfferWithItem[] = receivedOffers.map(offer => {
+        const item = itemMap.get(offer.fields.item_id);
+        return {
+          ...offer,
+          itemTitle: item?.fields.title || 'Unknown Item',
+          itemImage: getImageUrl(item),
+          itemPrice: item?.fields.price || '0',
+        };
+      });
+
+      // Map escrows with item details
+      const escrowsWithItems: EscrowWithItem[] = escrows.map(escrow => {
+        const item = itemMap.get(escrow.fields.item_id);
+        return {
+          ...escrow,
+          itemTitle: item?.fields.title || 'Unknown Item',
+          itemImage: getImageUrl(item),
+        };
+      });
+
+      setMyItems(itemsWithOffers);
+      setOffersMade(offersMadeWithItems);
+      setOffersReceived(offersReceivedWithItems);
+      setTransactions(escrowsWithItems);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading blockchain data:', error);
+      toast.error('Failed to load data from blockchain');
     } finally {
       setLoading(false);
     }
-  };
+  }, [wallet.account?.address]);
 
-  const handleAcceptOffer = async (offerId: string) => {
+  useEffect(() => {
+    if (wallet.connected && wallet.account?.address) {
+      loadData();
+    }
+  }, [wallet.connected, wallet.account?.address, loadData]);
+
+  const handleAcceptOffer = async (offerId: string, itemId: string) => {
+    if (!wallet.account?.address) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
     setAlertConfig({
       title: 'Accept Offer',
-      description: 'Accept this offer? This will create an escrow and lock the item.',
-      actionLabel: 'Accept',
+      description: "Accept this offer? The buyer's payment is already in escrow. They will need to confirm delivery to release funds to you.",
+      actionLabel: 'Accept Offer',
       action: async () => {
         try {
-          await mockAcceptOffer(offerId);
-          toast.success('Offer accepted! Escrow created.');
-          loadData();
+          const tx = buildAcceptOfferTransaction({
+            offerId,
+            itemId,
+          });
+
+          const result = await wallet.signAndExecuteTransaction({
+            transaction: tx,
+          });
+
+          console.log('Accept offer result:', result);
+
+          // Wait for transaction to get full effects
+          const txResult = await suiClient.waitForTransaction({
+            digest: result.digest,
+            options: {
+              showEffects: true,
+            },
+          });
+
+          if (txResult.effects?.status?.status === 'success') {
+            toast.success('Offer accepted! Waiting for buyer to confirm delivery.');
+            await loadData();
+          } else {
+            throw new Error('Transaction failed');
+          }
         } catch (error) {
           console.error('Error accepting offer:', error);
-          toast.error('Failed to accept offer');
+          toast.error(error instanceof Error ? error.message : 'Failed to accept offer');
         }
       },
     });
@@ -125,18 +242,44 @@ export default function StashPage() {
   };
 
   const handleRejectOffer = async (offerId: string) => {
+    if (!wallet.account?.address) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
     setAlertConfig({
       title: 'Reject Offer',
-      description: 'Are you sure you want to reject this offer?',
-      actionLabel: 'Reject',
+      description: 'Are you sure you want to reject this offer? This action cannot be undone.',
+      actionLabel: 'Reject Offer',
       action: async () => {
         try {
-          await mockRejectOffer(offerId);
-          toast.success('Offer rejected');
-          loadData();
+          // Build transaction
+          const tx = buildRejectOfferTransaction(offerId);
+
+          // Sign and execute transaction
+          const result = await wallet.signAndExecuteTransaction({
+            transaction: tx,
+          });
+
+          console.log('Reject offer result:', result);
+
+          // Wait for transaction to get full effects
+          const txResult = await suiClient.waitForTransaction({
+            digest: result.digest,
+            options: {
+              showEffects: true,
+            },
+          });
+
+          if (txResult.effects?.status?.status === 'success') {
+            toast.success('Offer rejected');
+            await loadData(); // Refresh data
+          } else {
+            throw new Error('Transaction failed');
+          }
         } catch (error) {
           console.error('Error rejecting offer:', error);
-          toast.error('Failed to reject offer');
+          toast.error(error instanceof Error ? error.message : 'Failed to reject offer');
         }
       },
     });
@@ -152,15 +295,17 @@ export default function StashPage() {
 
   const handleSubmitCounter = async () => {
     if (!counterOfferId || !counterAmount) return;
-    
+
     try {
-      await mockCounterOffer(counterOfferId, parseFloat(counterAmount), counterMessage);
-      toast.success('Counter offer sent!');
+      // TODO: Implement with buildCounterOfferTransaction()
+      toast.info('Counter offer functionality coming soon!');
+      console.log('Counter offer:', counterOfferId, counterAmount, counterMessage);
       setCounterModalOpen(false);
       setCounterOfferId(null);
       setCounterAmount('');
       setCounterMessage('');
-      loadData();
+      // await buildCounterOfferTransaction(...)
+      // loadData();
     } catch (error) {
       console.error('Error sending counter offer:', error);
       toast.error('Failed to send counter offer');
@@ -174,9 +319,11 @@ export default function StashPage() {
       actionLabel: 'Accept',
       action: async () => {
         try {
-          await mockAcceptCounterOffer(offerId);
-          toast.success('Counter offer accepted! Escrow created.');
-          loadData();
+          // TODO: Implement with buildAcceptCounterOfferTransaction()
+          toast.info('Accept counter offer functionality coming soon!');
+          console.log('Accept counter offer:', offerId);
+          // await buildAcceptCounterOfferTransaction(...)
+          // loadData();
         } catch (error) {
           console.error('Error accepting counter:', error);
           toast.error('Failed to accept counter offer');
@@ -187,41 +334,61 @@ export default function StashPage() {
   };
 
   const handleCancelOffer = async (offerId: string) => {
+    if (!wallet.account?.address) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
     setAlertConfig({
       title: 'Cancel Offer',
-      description: 'Are you sure you want to cancel this offer?',
+      description: 'Are you sure you want to cancel this offer? Your locked payment will be refunded.',
       actionLabel: 'Cancel Offer',
       action: async () => {
         try {
-          await mockCancelOffer(offerId);
-          toast.success('Offer cancelled');
-          loadData();
+          // Build transaction
+          const tx = buildCancelOfferTransaction(offerId);
+
+          // Sign and execute transaction
+          const result = await wallet.signAndExecuteTransaction({
+            transaction: tx,
+          });
+
+          console.log('Cancel offer result:', result);
+
+          // Wait for transaction to get full effects
+          const txResult = await suiClient.waitForTransaction({
+            digest: result.digest,
+            options: {
+              showEffects: true,
+            },
+          });
+
+          if (txResult.effects?.status?.status === 'success') {
+            toast.success('Offer cancelled and payment refunded');
+            await loadData(); // Refresh data
+          } else {
+            throw new Error('Transaction failed');
+          }
         } catch (error) {
           console.error('Error cancelling offer:', error);
-          toast.error('Failed to cancel offer');
+          toast.error(error instanceof Error ? error.message : 'Failed to cancel offer');
         }
       },
     });
     setAlertOpen(true);
   };
 
-  const handleOpenShippingModal = (txId: string) => {
-    setShippingTxId(txId);
-    setTrackingNumber('');
-    setCarrier('USPS');
-    setShippingModalOpen(true);
-  };
-
   const handleSubmitShipping = async () => {
     if (!shippingTxId || !trackingNumber) return;
-    
+
     try {
-      await mockSubmitShipping(shippingTxId, trackingNumber, carrier);
-      toast.success('Shipping info submitted!');
+      // TODO: Store shipping info on-chain or in Supabase
+      toast.info('Shipping info submission coming soon!');
+      console.log('Submit shipping:', shippingTxId, trackingNumber, carrier);
       setShippingModalOpen(false);
       setShippingTxId(null);
       setTrackingNumber('');
-      loadData();
+      // loadData();
     } catch (error) {
       console.error('Error submitting shipping:', error);
       toast.error('Failed to submit shipping info');
@@ -245,32 +412,76 @@ export default function StashPage() {
       toast.error('Please fill in all shipping fields');
       return;
     }
-    
+
     try {
-      await mockSubmitBuyerShipping(buyerShippingTxId, shippingAddress);
-      toast.success('Shipping address submitted!');
+      // TODO: Store buyer shipping address on-chain or in Supabase
+      toast.info('Shipping address submission coming soon!');
+      console.log('Submit buyer shipping:', buyerShippingTxId, shippingAddress);
       setBuyerShippingModalOpen(false);
       setBuyerShippingTxId(null);
-      loadData();
+      // loadData();
     } catch (error) {
       console.error('Error submitting shipping address:', error);
       toast.error('Failed to submit shipping address');
     }
   };
 
-  const handleConfirmDelivery = async (txId: string) => {
+  const handleConfirmDelivery = async (escrowId: string, itemId: string) => {
+    if (!wallet.account?.address) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
     setAlertConfig({
       title: 'Confirm Delivery',
-      description: 'Confirm you received this item? This will release funds to the seller.',
-      actionLabel: 'Confirm',
+      description: 'Confirm you received this item? This will release funds to the seller and cannot be reversed!',
+      actionLabel: 'Confirm Delivery',
       action: async () => {
         try {
-          await mockConfirmDelivery(txId);
-          toast.success('Delivery confirmed! Transaction complete.');
-          loadData();
+          // Build transaction manually to call confirm_delivery_by_id
+          const { Transaction } = await import('@mysten/sui/transactions');
+          const tx = new Transaction();
+
+          const PACKAGE_ID = process.env.NEXT_PUBLIC_THRIFTCHAIN_PACKAGE_ID!;
+          const MARKETPLACE_ID = process.env.NEXT_PUBLIC_MARKETPLACE_ID!;
+          const CLOCK_ID = '0x6';
+
+          tx.moveCall({
+            target: `${PACKAGE_ID}::thriftchain::confirm_delivery_by_id`,
+            arguments: [
+              tx.object(MARKETPLACE_ID),
+              tx.pure.id(escrowId),
+              tx.pure.id(itemId),
+              tx.object(CLOCK_ID),
+            ],
+          });
+
+          tx.setGasBudget(100_000_000);
+
+          // Sign and execute transaction
+          const result = await wallet.signAndExecuteTransaction({
+            transaction: tx,
+          });
+
+          console.log('Confirm delivery result:', result);
+
+          // Wait for transaction to get full effects
+          const txResult = await suiClient.waitForTransaction({
+            digest: result.digest,
+            options: {
+              showEffects: true,
+            },
+          });
+
+          if (txResult.effects?.status?.status === 'success') {
+            toast.success('Delivery confirmed! Funds released to seller.');
+            await loadData(); // Refresh data
+          } else {
+            throw new Error('Transaction failed');
+          }
         } catch (error) {
           console.error('Error confirming delivery:', error);
-          toast.error('Failed to confirm delivery');
+          toast.error(error instanceof Error ? error.message : 'Failed to confirm delivery');
         }
       },
     });
@@ -398,53 +609,56 @@ export default function StashPage() {
                 <p className="mb-4 text-xl">No items listed yet</p>
                 <button
                   onClick={() => router.push('/list-item')}
-                  className="retro-btn"
+                  className="retro-btn p-4"
                 >
                   List Your First Item
                 </button>
               </div>
             ) : (
               myItems.map((item) => {
-                const itemOffers = offersReceived.filter(o => o.itemId === item.itemId);
-                
+                const itemOffers = offersReceived.filter(o => o.fields.item_id === item.objectId);
+                const itemImageUrl = item.fields.walrus_image_ids && item.fields.walrus_image_ids.length > 0
+                  ? getWalrusBlobUrl(item.fields.walrus_image_ids[0])
+                  : '/placeholder-image.png';
+
                 return (
-                  <div key={item.itemId} className="retro-card p-6">
+                  <div key={item.objectId} className="retro-card p-6">
                     <div className="flex gap-4 flex-col md:flex-row">
                       {/* Item Image */}
                       <div
                         className="relative w-full md:w-32 h-32 border-2 border-white cursor-pointer overflow-hidden"
-                        onClick={() => router.push(`/items/${item.itemId}`)}
+                        onClick={() => router.push(`/items/${item.objectId}`)}
                       >
                         <Image
-                          src={item.itemImage}
-                          alt={item.itemTitle}
+                          src={itemImageUrl}
+                          alt={item.fields.title}
                           fill
                           sizes="(min-width: 768px) 128px, 100vw"
                           className="object-cover"
                           unoptimized
                         />
                       </div>
-                      
+
                       {/* Item Details */}
                       <div className="flex-1">
                         <h3
                           className="text-xl font-bold mb-2 cursor-pointer hover:opacity-80"
-                          onClick={() => router.push(`/items/${item.itemId}`)}
+                          onClick={() => router.push(`/items/${item.objectId}`)}
                         >
-                          {item.itemTitle}
+                          {item.fields.title}
                         </h3>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                           <div>
                             <p className="text-sm opacity-60">Listed Price</p>
-                            <p className="text-2xl font-bold">${item.price} SUI</p>
+                            <p className="text-2xl font-bold">{mistToSui(item.fields.price).toFixed(2)} SUI</p>
                           </div>
                           <div>
                             <p className="text-sm opacity-60">Status</p>
                             <p className="font-bold">
-                              {item.status === 'active' && '✅ Active'}
-                              {item.status === 'sold' && '💰 Sold'}
-                              {item.status === 'cancelled' && '🚫 Cancelled'}
+                              {item.fields.status === ItemStatus.Active && '✅ Active'}
+                              {item.fields.status === ItemStatus.Sold && '💰 Sold'}
+                              {item.fields.status === ItemStatus.Cancelled && '🚫 Cancelled'}
                             </p>
                           </div>
                           <div>
@@ -454,91 +668,86 @@ export default function StashPage() {
                         </div>
 
                         <p className="text-sm opacity-60 mb-4">
-                          Listed: {formatDate(item.listedAt)}
+                          Listed: {formatDate(parseInt(item.fields.created_at))}
                         </p>
 
                         {/* Show offers on this item */}
                         {itemOffers.length > 0 && (
                           <div className="mt-4 space-y-3">
                             <h4 className="font-bold text-sm opacity-80">Offers on this item:</h4>
-                            {itemOffers.map((offer) => (
-                              <div key={offer.offerId} className="p-4 bg-black/20 border-2 border-white/20">
-                                <div className="flex justify-between items-start mb-2">
-                                  <div>
-                                    <p className="font-bold">
-                                      ${offer.counterAmount && offer.status === 'countered' ? offer.counterAmount : offer.amount} SUI
-                                      {offer.counterAmount && offer.status === 'countered' && (
-                                        <span className="text-sm opacity-60 ml-2">(was ${offer.amount})</span>
-                                      )}
-                                    </p>
-                                    <p className="text-sm opacity-60">From: {shortenAddress(offer.buyerAddress)}</p>
+                            {itemOffers.map((offer) => {
+                              const offerAmount = mistToSui(offer.fields.amount).toFixed(2);
+                              const isCountered = offer.fields.status === OfferStatus.Countered;
+
+                              return (
+                                <div key={offer.objectId} className="p-4 bg-black/20 border-2 border-white/20">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                      <p className="font-bold">
+                                        {offerAmount} SUI
+                                      </p>
+                                      <p className="text-sm opacity-60">From: {shortenAddress(offer.fields.buyer)}</p>
+                                    </div>
+                                    <span className="text-sm font-bold">
+                                      {offer.fields.status === OfferStatus.Pending && '⏳ Pending'}
+                                      {offer.fields.status === OfferStatus.Countered && '💬 Countered'}
+                                      {offer.fields.status === OfferStatus.Accepted && '✅ Accepted'}
+                                      {offer.fields.status === OfferStatus.Rejected && '❌ Rejected'}
+                                    </span>
                                   </div>
-                                  <span className="text-sm font-bold">
-                                    {offer.status === 'pending' && '⏳ Pending'}
-                                    {offer.status === 'countered' && '💬 Countered'}
-                                    {offer.status === 'accepted' && '✅ Accepted'}
-                                    {offer.status === 'rejected' && '❌ Rejected'}
-                                  </span>
+
+                                  {offer.fields.message && (
+                                    <p className="text-sm mb-3">&quot;{offer.fields.message}&quot;</p>
+                                  )}
+
+                                  {offer.fields.status === OfferStatus.Pending && (
+                                    <div className="flex gap-2 flex-wrap">
+                                      <button
+                                        onClick={() => handleAcceptOffer(offer.objectId, offer.fields.item_id)}
+                                        className="retro-btn bg-green-600 hover:bg-green-700 px-4 py-2 text-sm"
+                                      >
+                                        ✅ Accept
+                                      </button>
+                                      <button
+                                        onClick={() => handleOpenCounterModal(offer.objectId, parseFloat(offerAmount))}
+                                        className="retro-btn bg-yellow-600 hover:bg-yellow-700 px-4 py-2 text-sm"
+                                      >
+                                        💬 Counter
+                                      </button>
+                                      <button
+                                        onClick={() => handleRejectOffer(offer.objectId)}
+                                        className="retro-btn bg-red-600 hover:bg-red-700 px-4 py-2 text-sm"
+                                      >
+                                        ❌ Reject
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {isCountered && (
+                                    <div className="flex gap-2 flex-wrap">
+                                      <button
+                                        onClick={() => handleAcceptCounter(offer.objectId)}
+                                        className="retro-btn bg-green-600 hover:bg-green-700 px-4 py-2 text-sm"
+                                      >
+                                        ✅ Accept Their Counter
+                                      </button>
+                                      <button
+                                        onClick={() => handleOpenCounterModal(offer.objectId, parseFloat(offerAmount))}
+                                        className="retro-btn bg-yellow-600 hover:bg-yellow-700 px-4 py-2 text-sm"
+                                      >
+                                        💬 Counter Again
+                                      </button>
+                                      <button
+                                        onClick={() => handleRejectOffer(offer.objectId)}
+                                        className="retro-btn bg-red-600 hover:bg-red-700 px-4 py-2 text-sm"
+                                      >
+                                        ❌ Reject
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
-                                
-                                {offer.message && (
-                                  <p className="text-sm mb-3">&quot;{offer.message}&quot;</p>
-                                )}
-
-                                {offer.counterMessage && offer.status === 'countered' && (
-                                  <div className="mb-3 p-2 bg-yellow-500/20 border-2 border-yellow-500">
-                                    <p className="text-xs opacity-60 mb-1">Your Counter Message:</p>
-                                    <p className="text-sm">&quot;{offer.counterMessage}&quot;</p>
-                                  </div>
-                                )}
-
-                                {offer.status === 'pending' && (
-                                  <div className="flex gap-2 flex-wrap">
-                                    <button
-                                      onClick={() => handleAcceptOffer(offer.offerId)}
-                                      className="retro-btn bg-green-600 hover:bg-green-700 px-4 py-2 text-sm"
-                                    >
-                                      ✅ Accept
-                                    </button>
-                                    <button
-                                      onClick={() => handleOpenCounterModal(offer.offerId, offer.amount)}
-                                      className="retro-btn bg-yellow-600 hover:bg-yellow-700 px-4 py-2 text-sm"
-                                    >
-                                      💬 Counter
-                                    </button>
-                                    <button
-                                      onClick={() => handleRejectOffer(offer.offerId)}
-                                      className="retro-btn bg-red-600 hover:bg-red-700 px-4 py-2 text-sm"
-                                    >
-                                      ❌ Reject
-                                    </button>
-                                  </div>
-                                )}
-
-                                {offer.status === 'countered' && (
-                                  <div className="flex gap-2 flex-wrap">
-                                    <button
-                                      onClick={() => handleAcceptCounter(offer.offerId)}
-                                      className="retro-btn bg-green-600 hover:bg-green-700 px-4 py-2 text-sm"
-                                    >
-                                      ✅ Accept Their Counter
-                                    </button>
-                                    <button
-                                      onClick={() => handleOpenCounterModal(offer.offerId, offer.counterAmount || offer.amount)}
-                                      className="retro-btn bg-yellow-600 hover:bg-yellow-700 px-4 py-2 text-sm"
-                                    >
-                                      💬 Counter Again
-                                    </button>
-                                    <button
-                                      onClick={() => handleRejectOffer(offer.offerId)}
-                                      className="retro-btn bg-red-600 hover:bg-red-700 px-4 py-2 text-sm"
-                                    >
-                                      ❌ Reject
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -557,134 +766,139 @@ export default function StashPage() {
                 <p className="mb-4 text-xl">No offers made yet</p>
                 <button
                   onClick={() => router.push('/listings')}
-                  className="retro-btn"
+                  className="retro-btn p-4"
                 >
                   Browse Items
                 </button>
               </div>
             ) : (
-              offersMade.map((offer) => (
-                <div key={offer.offerId} className="retro-card p-6">
-                  <div className="flex gap-4 flex-col md:flex-row">
-                    {/* Item Image */}
-                    <div
-                      className="relative w-full md:w-32 h-32 border-2 border-white cursor-pointer overflow-hidden"
-                      onClick={() => router.push(`/items/${offer.itemId}`)}
-                    >
-                      <Image
-                        src={offer.itemImage}
-                        alt={offer.itemTitle}
-                        fill
-                        sizes="(min-width: 768px) 128px, 100vw"
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                    
-                    {/* Offer Details */}
-                    <div className="flex-1">
-                      <h3
-                        className="text-xl font-bold mb-2 cursor-pointer hover:opacity-80"
-                        onClick={() => router.push(`/items/${offer.itemId}`)}
+              offersMade.map((offer) => {
+                const offerAmount = mistToSui(offer.fields.amount).toFixed(2);
+                const isCountered = offer.fields.status === OfferStatus.Countered;
+                const isPending = offer.fields.status === OfferStatus.Pending;
+                const isAccepted = offer.fields.status === OfferStatus.Accepted;
+
+                return (
+                  <div key={offer.objectId} className="retro-card p-6">
+                    <div className="flex gap-4 flex-col md:flex-row">
+                      {/* Item Image */}
+                      <div
+                        className="relative w-full md:w-32 h-32 border-2 border-white cursor-pointer overflow-hidden"
+                        onClick={() => router.push(`/items/${offer.fields.item_id}`)}
                       >
-                        {offer.itemTitle}
-                      </h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <p className="text-sm opacity-60">Your Offer</p>
-                          <p className="text-2xl font-bold">${offer.amount} SUI</p>
-                        </div>
-                        <div>
-                          <p className="text-sm opacity-60">Status</p>
-                          <p className="font-bold">
-                            {offer.status === 'pending' && '⏳ Pending'}
-                            {offer.status === 'countered' && '💬 Countered'}
-                            {offer.status === 'accepted' && '✅ Accepted'}
-                            {offer.status === 'rejected' && '❌ Rejected'}
-                            {offer.status === 'cancelled' && '🚫 Cancelled'}
-                          </p>
-                        </div>
+                        <Image
+                          src={offer.itemImage}
+                          alt={offer.itemTitle}
+                          fill
+                          sizes="(min-width: 768px) 128px, 100vw"
+                          className="object-cover"
+                          unoptimized
+                        />
                       </div>
 
-                      {offer.message && (
-                        <div className="mb-4 p-4 bg-black/20 border-2 border-white/20">
-                          <p className="text-sm opacity-60 mb-1">Your Message:</p>
-                          <p>{offer.message}</p>
-                        </div>
-                      )}
+                      {/* Offer Details */}
+                      <div className="flex-1">
+                        <h3
+                          className="text-xl font-bold mb-2 cursor-pointer hover:opacity-80"
+                          onClick={() => router.push(`/items/${offer.fields.item_id}`)}
+                        >
+                          {offer.itemTitle}
+                        </h3>
 
-                      {/* Counter Offer Display */}
-                      {offer.status === 'countered' && offer.counterAmount && (
-                        <div className="mb-4 p-4 bg-yellow-500/20 border-4 border-yellow-500">
-                          <p className="font-bold mb-2">💬 Seller Countered with ${offer.counterAmount} SUI</p>
-                          {offer.counterMessage && (
-                            <p className="mb-3 opacity-90">&quot;{offer.counterMessage}&quot;</p>
-                          )}
-                          <div className="flex gap-2 flex-wrap">
-                            <button
-                              onClick={() => handleAcceptCounter(offer.offerId)}
-                              className="retro-btn bg-green-600 hover:bg-green-700 px-6 py-3"
-                            >
-                              Accept Counter
-                            </button>
-                            <button
-                              onClick={() => handleOpenCounterModal(offer.offerId, offer.counterAmount || offer.amount)}
-                              className="retro-btn bg-yellow-600 hover:bg-yellow-700 px-6 py-3"
-                            >
-                              Counter Again
-                            </button>
-                            <button
-                              onClick={() => handleCancelOffer(offer.offerId)}
-                              className="retro-btn bg-red-600 hover:bg-red-700 px-6 py-3"
-                            >
-                              Decline
-                            </button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <p className="text-sm opacity-60">Your Offer</p>
+                            <p className="text-2xl font-bold">{offerAmount} SUI</p>
+                          </div>
+                          <div>
+                            <p className="text-sm opacity-60">Status</p>
+                            <p className="font-bold">
+                              {offer.fields.status === OfferStatus.Pending && '⏳ Pending'}
+                              {offer.fields.status === OfferStatus.Countered && '💬 Countered'}
+                              {offer.fields.status === OfferStatus.Accepted && '✅ Accepted'}
+                              {offer.fields.status === OfferStatus.Rejected && '❌ Rejected'}
+                              {offer.fields.status === OfferStatus.Cancelled && '🚫 Cancelled'}
+                            </p>
                           </div>
                         </div>
-                      )}
 
-                      {/* Accepted Offer - Need Shipping Address */}
-                      {offer.status === 'accepted' && (
-                        <div className="mb-4 p-4 bg-green-500/20 border-4 border-green-500">
-                          <p className="font-bold mb-2">✅ Offer Accepted! Next Step: Provide Shipping Address</p>
-                          <p className="mb-3 opacity-90">The seller has accepted your offer. Please enter your shipping address to continue.</p>
-                          <button
-                            onClick={() => handleOpenBuyerShippingModal(offer.offerId)}
-                            className="retro-btn bg-blue-600 hover:bg-blue-700 px-6 py-3"
-                          >
-                            📍 Enter Shipping Address
-                          </button>
+                        {offer.fields.message && (
+                          <div className="mb-4 p-4 bg-black/20 border-2 border-white/20">
+                            <p className="text-sm opacity-60 mb-1">Your Message:</p>
+                            <p>{offer.fields.message}</p>
+                          </div>
+                        )}
+
+                        {/* Counter Offer Display */}
+                        {isCountered && (
+                          <div className="mb-4 p-4 bg-yellow-500/20 border-4 border-yellow-500">
+                            <p className="font-bold mb-2">💬 Seller countered this offer</p>
+                            <p className="mb-3 opacity-90">The seller has sent a counter offer. Updated amount: {offerAmount} SUI</p>
+                            <div className="flex gap-2 flex-wrap">
+                              <button
+                                onClick={() => handleAcceptCounter(offer.objectId)}
+                                className="retro-btn bg-green-600 hover:bg-green-700 px-6 py-3"
+                              >
+                                Accept Counter
+                              </button>
+                              <button
+                                onClick={() => handleOpenCounterModal(offer.objectId, parseFloat(offerAmount))}
+                                className="retro-btn bg-yellow-600 hover:bg-yellow-700 px-6 py-3"
+                              >
+                                Counter Again
+                              </button>
+                              <button
+                                onClick={() => handleCancelOffer(offer.objectId)}
+                                className="retro-btn bg-red-600 hover:bg-red-700 px-6 py-3"
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Accepted Offer - Need Shipping Address */}
+                        {isAccepted && (
+                          <div className="mb-4 p-4 bg-green-500/20 border-4 border-green-500">
+                            <p className="font-bold mb-2">✅ Offer Accepted! Next Step: Provide Shipping Address</p>
+                            <p className="mb-3 opacity-90">The seller has accepted your offer. Please enter your shipping address to continue.</p>
+                            <button
+                              onClick={() => handleOpenBuyerShippingModal(offer.objectId)}
+                              className="retro-btn bg-blue-600 hover:bg-blue-700 px-6 py-3"
+                            >
+                              📍 Enter Shipping Address
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2 items-center text-sm opacity-60">
+                          <span>To: {shortenAddress(offer.fields.seller)}</span>
+                          <span>•</span>
+                          <span>{formatDate(parseInt(offer.fields.created_at))}</span>
+                          {isPending && (
+                            <>
+                              <span>•</span>
+                              <span>Expires: {formatDate(parseInt(offer.fields.expires_at))}</span>
+                            </>
+                          )}
                         </div>
-                      )}
 
-                      <div className="flex gap-2 items-center text-sm opacity-60">
-                        <span>To: {shortenAddress(offer.sellerAddress)}</span>
-                        <span>•</span>
-                        <span>{formatDate(offer.createdAt)}</span>
-                        {offer.status === 'pending' && (
-                          <>
-                            <span>•</span>
-                            <span>Expires: {formatDate(offer.expiresAt)}</span>
-                          </>
+                        {/* Actions */}
+                        {isPending && (
+                          <div className="mt-4">
+                            <button
+                              onClick={() => handleCancelOffer(offer.objectId)}
+                              className="retro-btn bg-red-600 hover:bg-red-700 px-6 py-3"
+                            >
+                              Cancel Offer
+                            </button>
+                          </div>
                         )}
                       </div>
-
-                      {/* Actions */}
-                      {offer.status === 'pending' && (
-                        <div className="mt-4">
-                          <button
-                            onClick={() => handleCancelOffer(offer.offerId)}
-                            className="retro-btn bg-red-600 hover:bg-red-700 px-6 py-3"
-                          >
-                            Cancel Offer
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -698,16 +912,19 @@ export default function StashPage() {
               </div>
             ) : (
               transactions.map((tx) => {
-                const isBuyer = tx.buyerAddress === wallet.address;
-                const isSeller = tx.sellerAddress === wallet.address;
-                
+                const isBuyer = tx.fields.buyer === wallet.address;
+                const escrowAmount = mistToSui(tx.fields.amount).toFixed(2);
+                const isActive = tx.fields.status === EscrowStatus.Active;
+                const isCompleted = tx.fields.status === EscrowStatus.Completed;
+                const isDisputed = tx.fields.status === EscrowStatus.Disputed;
+
                 return (
-                  <div key={tx.transactionId} className="retro-card p-6">
+                  <div key={tx.objectId} className="retro-card p-6">
                     <div className="flex gap-4 flex-col md:flex-row">
                       {/* Item Image */}
                       <div
                         className="relative w-full md:w-32 h-32 border-2 border-white cursor-pointer overflow-hidden"
-                        onClick={() => router.push(`/items/${tx.itemId}`)}
+                        onClick={() => router.push(`/items/${tx.fields.item_id}`)}
                       >
                         <Image
                           src={tx.itemImage}
@@ -718,20 +935,20 @@ export default function StashPage() {
                           unoptimized
                         />
                       </div>
-                      
+
                       {/* Transaction Details */}
                       <div className="flex-1">
                         <h3
                           className="text-xl font-bold mb-2 cursor-pointer hover:opacity-80"
-                          onClick={() => router.push(`/items/${tx.itemId}`)}
+                          onClick={() => router.push(`/items/${tx.fields.item_id}`)}
                         >
                           {tx.itemTitle}
                         </h3>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                           <div>
                             <p className="text-sm opacity-60">Amount</p>
-                            <p className="text-2xl font-bold">${tx.amount} SUI</p>
+                            <p className="text-2xl font-bold">{escrowAmount} SUI</p>
                           </div>
                           <div>
                             <p className="text-sm opacity-60">Role</p>
@@ -740,68 +957,71 @@ export default function StashPage() {
                           <div>
                             <p className="text-sm opacity-60">Status</p>
                             <p className="font-bold">
-                              {tx.status === 'awaiting_shipping' && '⏳ Awaiting Shipping'}
-                              {tx.status === 'shipped' && '📦 Shipped'}
-                              {tx.status === 'delivered' && '✅ Delivered'}
-                              {tx.status === 'disputed' && '⚠️ Disputed'}
-                              {tx.status === 'completed' && '✅ Completed'}
+                              {isActive && '⏳ Active (In Escrow)'}
+                              {isCompleted && '✅ Completed'}
+                              {isDisputed && '⚠️ Disputed'}
+                              {tx.fields.status === EscrowStatus.Refunded && '💰 Refunded'}
                             </p>
                           </div>
                         </div>
 
-                        {/* Buyer Shipping Address for Sellers */}
-                        {isSeller && tx.buyerShippingInfo && (
-                          <div className="mb-4 p-4 bg-blue-500/20 border-4 border-blue-500">
-                            <p className="font-bold mb-2">📍 Ship to:</p>
-                            <p>{tx.buyerShippingInfo.address}</p>
-                            <p>
-                              {tx.buyerShippingInfo.city}, {tx.buyerShippingInfo.state} {tx.buyerShippingInfo.zip}
-                            </p>
-                            <p>{tx.buyerShippingInfo.country}</p>
-                          </div>
-                        )}
-
-                        {/* Tracking Info */}
-                        {tx.trackingNumber && (
-                          <div className="mb-4 p-4 bg-green-500/20 border-4 border-green-500">
-                            <p className="text-sm opacity-60 mb-1">Tracking Information</p>
-                            <p className="font-mono">{tx.trackingNumber}</p>
-                            <p className="text-sm mt-1">Carrier: {tx.shippingCarrier}</p>
-                          </div>
-                        )}
-
                         <div className="text-sm opacity-60 mb-4">
-                          <span>Started: {formatDate(tx.createdAt)}</span>
-                          {tx.completedAt && (
+                          <span>Started: {formatDate(parseInt(tx.fields.created_at))}</span>
+                          {parseInt(tx.fields.completed_at) > 0 && (
                             <>
                               <span> • </span>
-                              <span>Completed: {formatDate(tx.completedAt)}</span>
+                              <span>Completed: {formatDate(parseInt(tx.fields.completed_at))}</span>
                             </>
                           )}
                         </div>
 
+                        {/* Information message for active escrows */}
+                        {isActive && (
+                          <div className="mb-4 p-4 bg-blue-500/20 border-4 border-blue-500">
+                            <p className="font-bold mb-2">💰 Funds in Escrow</p>
+                            <p className="text-sm opacity-90">
+                              {isBuyer
+                                ? 'Your payment is held securely in escrow. Confirm delivery when you receive the item.'
+                                : 'Buyer\'s payment is held in escrow. Ship the item and buyer will confirm delivery.'}
+                            </p>
+                          </div>
+                        )}
+
                         {/* Actions Based on Status */}
-                        {isSeller && tx.status === 'awaiting_shipping' && (
-                          <button
-                            onClick={() => handleOpenShippingModal(tx.transactionId)}
-                            className="retro-btn bg-blue-600 hover:bg-blue-700 px-6 py-3"
-                          >
-                            📦 Add Shipping Info
-                          </button>
+                        {isBuyer && isActive && (
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => handleConfirmDelivery(tx.objectId, tx.fields.item_id)}
+                              className="retro-btn bg-green-600 hover:bg-green-700 px-6 py-3"
+                            >
+                              ✅ Confirm Delivery
+                            </button>
+                            <button
+                              onClick={() => toast.info('Dispute functionality coming soon!')}
+                              className="retro-btn bg-yellow-600 hover:bg-yellow-700 px-6 py-3"
+                            >
+                              ⚠️ Dispute
+                            </button>
+                          </div>
                         )}
 
-                        {isBuyer && tx.status === 'shipped' && (
-                          <button
-                            onClick={() => handleConfirmDelivery(tx.transactionId)}
-                            className="retro-btn bg-green-600 hover:bg-green-700 px-6 py-3"
-                          >
-                            ✅ Confirm Delivery
-                          </button>
-                        )}
-
-                        {tx.status === 'completed' && (
+                        {isCompleted && (
                           <div className="p-4 bg-green-500/20 border-4 border-green-500">
                             <p className="font-bold">✅ Transaction Complete!</p>
+                            <p className="text-sm opacity-90 mt-1">
+                              {isBuyer
+                                ? 'You confirmed delivery. Funds released to seller.'
+                                : 'Buyer confirmed delivery. You received payment.'}
+                            </p>
+                          </div>
+                        )}
+
+                        {isDisputed && (
+                          <div className="p-4 bg-yellow-500/20 border-4 border-yellow-500">
+                            <p className="font-bold">⚠️ Transaction Disputed</p>
+                            <p className="text-sm opacity-90 mt-1">
+                              This transaction is under dispute. Please contact support.
+                            </p>
                           </div>
                         )}
                       </div>

@@ -4,11 +4,11 @@ import Image from "next/image"
 import { useState, useRef } from "react"
 import { useWallet } from "@suiet/wallet-kit"
 import { buildCreateItemTransaction, extractCreatedObjectIds } from "@/lib/sui/transactions"
+import { suiClient } from "@/lib/sui/client"
 import { Button } from "./ui/button"
 import { LoginModal } from "./LoginModal"
 import { uploadMultipleToWalrus } from "@/lib/walrus/upload"
 import type { CreateItemParams } from "@/lib/types/sui-objects"
-import { createItemRecord } from "@/lib/supabase/items"
 
 interface UploadedImage {
   file: File
@@ -198,52 +198,112 @@ export function ItemForm() {
 
       const transaction = buildCreateItemTransaction(params)
 
-      // Step 3: Execute transaction with wallet
+      // Step 3: Execute transaction with wallet (using modern Wallet Standard API)
       console.log('Signing and executing transaction...')
 
-      // Use wallet-kit's signAndExecuteTransactionBlock
-      const result = await wallet.signAndExecuteTransactionBlock({
-        transactionBlock: transaction as any,
+      // Modern Wallet Standard API returns BCS-encoded effects
+      const result = await wallet.signAndExecuteTransaction({
+        transaction: transaction,
+      })
+
+      console.log('✓ Transaction executed with digest:', result.digest)
+      console.log('Raw result:', result)
+
+      // Wait for transaction to be indexed and fetch full details
+      console.log('Fetching transaction details...')
+      const txResult = await suiClient.waitForTransaction({
+        digest: result.digest,
         options: {
           showEffects: true,
           showObjectChanges: true,
         },
       })
 
-      console.log('✓ Transaction executed:', result.digest)
+      console.log('✓ Transaction details fetched:', txResult)
 
       // Check if transaction was successful
-      if (result.effects?.status?.status !== 'success') {
-        throw new Error(`Transaction failed: ${result.effects?.status?.error || 'Unknown error'}`)
+      if (txResult.effects?.status?.status !== 'success') {
+        console.error('Transaction failed:', txResult);
+        throw new Error(`Transaction failed: ${txResult.effects?.status?.error || 'Unknown error'}`);
       }
 
       console.log('✓ Item created successfully on blockchain')
 
-      // Step 3: Extract the created object ID from blockchain result
-      const createdObjectIds = extractCreatedObjectIds(result)
+      // Step 4: Extract the created object ID from transaction result
+      const createdObjectIds = extractCreatedObjectIds(txResult);
       if (createdObjectIds.length === 0) {
-        throw new Error('No object ID returned from blockchain transaction')
+        console.error('No object ID returned from blockchain transaction:', txResult);
+        throw new Error('No object ID returned from blockchain transaction');
       }
 
-      const suiObjectId = createdObjectIds[0]
-      console.log('✓ Item object ID from blockchain:', suiObjectId)
+      const suiObjectId = createdObjectIds[0];
+      console.log('✓ Item object ID from blockchain:', suiObjectId);
 
-      // Step 4: Create Supabase index record for search (AFTER blockchain)
-      console.log('Creating Supabase search index...')
-      const supabaseRecord = await createItemRecord({
-        sui_object_id: suiObjectId,
-        // TODO: Add embeddings here if you want AI search from day 1
-        // For now, embeddings can be generated later by a background job
-      })
+      // Step 5: Generate AI embeddings and index for search
+      console.log('\n' + '='.repeat(60));
+      console.log('🔵 Starting AI indexing for item:', suiObjectId);
+      console.log('='.repeat(60));
 
-      if (!supabaseRecord) {
-        console.warn('Failed to create Supabase search index')
-        // Not fatal - item is on blockchain, just not indexed for search yet
-      } else {
-        console.log('✓ Supabase search index created')
+      try {
+        // Convert images to base64 for AI processing
+        console.log('📸 Converting', images.length, 'images to base64...');
+        const base64Images = await Promise.all(
+          images.map(async (img) => {
+            return new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(img.file);
+            });
+          })
+        );
+        console.log('✅ Images converted to base64');
+
+        // Call AI indexing API
+        console.log('🚀 Calling /api/ai/index-item...');
+        console.log('Payload:', {
+          sui_object_id: suiObjectId,
+          title: title.substring(0, 30) + '...',
+          description: description.substring(0, 30) + '...',
+          images: base64Images.length + ' base64 strings'
+        });
+
+        const indexResponse = await fetch('/api/ai/index-item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sui_object_id: suiObjectId,
+            title,
+            description,
+            images: base64Images,
+          }),
+        });
+
+        console.log('📡 API Response status:', indexResponse.status, indexResponse.statusText);
+
+        if (!indexResponse.ok) {
+          const errorData = await indexResponse.json();
+          console.error('🔴 AI indexing FAILED:', errorData);
+          console.error('Error details:', JSON.stringify(errorData, null, 2));
+          // Not fatal - item is on blockchain, just not AI-searchable yet
+        } else {
+          const indexResult = await indexResponse.json();
+          console.log('✅ AI embeddings generated and indexed successfully!');
+          console.log('Result:', JSON.stringify(indexResult, null, 2));
+        }
+      } catch (indexError) {
+        console.error('🔴 Exception during AI indexing:', indexError);
+        console.error('Error type:', indexError instanceof Error ? indexError.constructor.name : typeof indexError);
+        console.error('Error message:', indexError instanceof Error ? indexError.message : String(indexError));
+        if (indexError instanceof Error && indexError.stack) {
+          console.error('Stack trace:', indexError.stack);
+        }
+        // Continue - item is still on blockchain
       }
 
-      console.log('✓ Item listing complete! Blockchain + Search index synced')
+      console.log('='.repeat(60) + '\n');
+
+      console.log('✓ Item listing complete! Blockchain + AI Search enabled')
       
       setSuccess(true)
       
@@ -283,6 +343,9 @@ export function ItemForm() {
   }
 
   if (success) {
+    // Scroll to the top of the page when success is true
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
     return (
       <div className="retro-card retro-shadow p-6 text-center">
         <div className="text-4xl mb-3">✓</div>
@@ -292,7 +355,7 @@ export function ItemForm() {
           Create Another Listing
         </Button>
       </div>
-    )
+    );
   }
 
   return (

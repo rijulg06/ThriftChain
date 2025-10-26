@@ -40,7 +40,7 @@ const MODULE_NAME = 'thriftchain'
  * Shared object IDs from deployment
  */
 const MARKETPLACE_ID = process.env.NEXT_PUBLIC_MARKETPLACE_ID || ''
-const ITEM_CAP_ID = process.env.NEXT_PUBLIC_ITEM_CAP_ID || ''
+// ITEM_CAP_ID removed - no longer needed for P2P marketplace (any user can create items)
 const CLOCK_ID = process.env.NEXT_PUBLIC_CLOCK_ID || '0x6'
 
 /**
@@ -58,6 +58,7 @@ const DEFAULT_GAS_BUDGET = 100_000_000 // 0.1 SUI
  *
  * This calls the Move smart contract to create a real on-chain item.
  * The item will be stored in the shared Marketplace table.
+ * Note: ItemCap no longer required - this is a P2P marketplace where any user can create items.
  *
  * @param params - Item creation parameters
  * @returns Transaction ready to be signed
@@ -67,7 +68,6 @@ export function buildCreateItemTransaction(params: CreateItemParams): Transactio
   console.log('Environment Variables:', {
     PACKAGE_ID: THRIFTCHAIN_PACKAGE_ID,
     MARKETPLACE_ID: MARKETPLACE_ID,
-    ITEM_CAP_ID: ITEM_CAP_ID,
     CLOCK_ID: CLOCK_ID
   })
 
@@ -76,9 +76,6 @@ export function buildCreateItemTransaction(params: CreateItemParams): Transactio
   }
   if (!MARKETPLACE_ID || MARKETPLACE_ID === '') {
     throw new Error(`NEXT_PUBLIC_MARKETPLACE_ID not configured: "${MARKETPLACE_ID}"`)
-  }
-  if (!ITEM_CAP_ID || ITEM_CAP_ID === '') {
-    throw new Error(`NEXT_PUBLIC_ITEM_CAP_ID not configured: "${ITEM_CAP_ID}"`)
   }
 
   console.log('Creating new Transaction...')
@@ -127,14 +124,11 @@ export function buildCreateItemTransaction(params: CreateItemParams): Transactio
   }
 
   // Call create_item entry function
-  // NOTE: walrus_image_ids parameter removed from smart contract
+  // NOTE: ItemCap parameter removed - P2P marketplace allows any user to create items
   console.log('Building moveCall with target:', `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::create_item`)
 
   console.log('Adding tx.object(MARKETPLACE_ID)...')
   const marketplaceArg = tx.object(MARKETPLACE_ID)
-
-  console.log('Adding tx.object(ITEM_CAP_ID)...')
-  const itemCapArg = tx.object(ITEM_CAP_ID)
 
   console.log('Building moveCall with BCS serialization...')
 
@@ -165,7 +159,7 @@ export function buildCreateItemTransaction(params: CreateItemParams): Transactio
       target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::create_item`,
       arguments: [
         marketplaceArg,
-        itemCapArg,
+        // itemCapArg removed - P2P marketplace doesn't require admin capability
         tx.pure(titleBytes),
         tx.pure(descriptionBytes),
         tx.pure(priceBytes),
@@ -483,13 +477,17 @@ export function buildRefundEscrowTransaction(escrowId: string): Transaction {
 /**
  * Execute a transaction and wait for confirmation
  *
+ * NOTE: This function uses the low-level suiClient API.
+ * For wallet transactions, use the wallet's signAndExecuteTransaction method directly.
+ *
  * @param tx - Transaction to execute
- * @param signer - Wallet signer
+ * @param signer - Wallet signer (Keypair)
  * @returns Transaction result with created object IDs
  */
 export async function executeTransaction(tx: Transaction, signer: TransactionSigner): Promise<SignAndExecuteResult> {
   try {
-    // Sign and execute transaction
+    // Sign and execute transaction using low-level client API
+    // Note: Most apps should use wallet.signAndExecuteTransaction() instead
     const result = await suiClient.signAndExecuteTransaction({
       transaction: tx,
       signer,
