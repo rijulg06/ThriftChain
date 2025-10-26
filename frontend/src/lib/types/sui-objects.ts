@@ -216,6 +216,15 @@ export interface AcceptOfferParams {
 }
 
 /**
+ * Parameters for countering an offer
+ */
+export interface CounterOfferParams {
+  offerId: string                     // Sui object ID of Offer
+  counterAmount: bigint               // Counter offer amount in MIST
+  counterMessage: string              // Message to buyer
+}
+
+/**
  * Parameters for confirming delivery
  */
 export interface ConfirmDeliveryParams {

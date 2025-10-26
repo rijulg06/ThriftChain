@@ -26,8 +26,8 @@ import {
 } from '@/lib/sui/queries';
 import { suiClient } from '@/lib/sui/client';
 import type { ThriftItemObject, OfferObject, EscrowObject } from '@/lib/types/sui-objects';
-import { mistToSui, OfferStatus, ItemStatus, EscrowStatus } from '@/lib/types/sui-objects';
-import { buildAcceptOfferTransaction, buildRejectOfferTransaction, buildCancelOfferTransaction } from '@/lib/sui/transactions';
+import { mistToSui, suiToMist, OfferStatus, ItemStatus, EscrowStatus } from '@/lib/types/sui-objects';
+import { buildAcceptOfferTransaction, buildRejectOfferTransaction, buildCancelOfferTransaction, buildCounterOfferTransaction } from '@/lib/sui/transactions';
 
 // UI-friendly data structures (adapted from blockchain objects)
 interface OfferWithItem extends OfferObject {
@@ -296,19 +296,54 @@ export default function StashPage() {
   const handleSubmitCounter = async () => {
     if (!counterOfferId || !counterAmount) return;
 
+    if (!wallet.account?.address) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
     try {
-      // TODO: Implement with buildCounterOfferTransaction()
-      toast.info('Counter offer functionality coming soon!');
-      console.log('Counter offer:', counterOfferId, counterAmount, counterMessage);
-      setCounterModalOpen(false);
-      setCounterOfferId(null);
-      setCounterAmount('');
-      setCounterMessage('');
-      // await buildCounterOfferTransaction(...)
-      // loadData();
+      // Convert SUI to MIST
+      const counterAmountMist = suiToMist(parseFloat(counterAmount));
+
+      // Build transaction
+      const tx = buildCounterOfferTransaction({
+        offerId: counterOfferId,
+        counterAmount: counterAmountMist,
+        counterMessage: counterMessage || '',
+      });
+
+      // Sign and execute transaction
+      const result = await wallet.signAndExecuteTransaction({
+        transaction: tx,
+      });
+
+      console.log('Counter offer result:', result);
+
+      // Wait for transaction to get full effects
+      const txResult = await suiClient.waitForTransaction({
+        digest: result.digest,
+        options: {
+          showEffects: true,
+        },
+      });
+
+      if (txResult.effects?.status?.status === 'success') {
+        toast.success('Counter offer sent successfully');
+
+        // Reset form
+        setCounterModalOpen(false);
+        setCounterOfferId(null);
+        setCounterAmount('');
+        setCounterMessage('');
+
+        // Refresh data
+        await loadData();
+      } else {
+        throw new Error('Transaction failed');
+      }
     } catch (error) {
       console.error('Error sending counter offer:', error);
-      toast.error('Failed to send counter offer');
+      toast.error(error instanceof Error ? error.message : 'Failed to send counter offer');
     }
   };
 
