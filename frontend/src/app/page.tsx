@@ -16,7 +16,7 @@ export default function Home() {
       const allItems = await getMockListings()
       // Shuffle and take first 12 items for variety
       const shuffled = [...allItems].sort(() => Math.random() - 0.5)
-      setItems(shuffled.slice(0, 12))
+      setItems(shuffled.slice(0, 20))
     }
     loadItems()
   }, [])
