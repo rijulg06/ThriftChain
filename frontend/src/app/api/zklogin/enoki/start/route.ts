@@ -45,8 +45,8 @@ export async function GET() {
       network: 'testnet',
     })
     return NextResponse.json({ loginUrl, debug: { redirectUri, clientId: oauthClientId } })
-  } catch (e: any) {
-    console.error('Enoki start error', e)
+  } catch (error: unknown) {
+    console.error('Enoki start error', error)
     return NextResponse.json({ message: 'Failed to create Enoki OAuth URL. Check keys and server logs.' }, { status: 500 })
   }
 }

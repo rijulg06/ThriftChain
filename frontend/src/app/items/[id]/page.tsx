@@ -1,11 +1,13 @@
 "use client"
 
-import { use, useState, useEffect } from "react"
+import Image from "next/image"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useWallet } from "@suiet/wallet-kit"
 import { Button } from "@/components/ui/button"
-import { getMockListings } from "@/lib/data/mock-listings"
-import type { ItemCardProps } from "@/components/ItemCard"
+import { getItemById } from "@/lib/sui/queries"
+import type { ThriftItemObject } from "@/lib/types/sui-objects"
+import { mistToSui } from "@/lib/types/sui-objects"
 
 /**
  * Item Detail Page - View full item details
@@ -20,42 +22,32 @@ import type { ItemCardProps } from "@/components/ItemCard"
  * - Action buttons (Make Offer if not owner, Cancel Listing if owner)
  * - Retro-themed styling
  */
-export default function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ItemDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const { connected, account } = useWallet()
-  
-  // Unwrap params Promise
-  const { id } = use(params)
-  
-  const [item, setItem] = useState<ItemCardProps | null>(null)
+
+  const { id } = params
+
+  const [item, setItem] = useState<ThriftItemObject | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [imageError, setImageError] = useState(false)
 
-  useEffect(() => {
-    // Scroll to top when page loads
-    window.scrollTo(0, 0)
-    loadItem()
-  }, [id])
-
-  const loadItem = async () => {
+  const loadItem = useCallback(async () => {
     setLoading(true)
     setError(null)
     
     try {
-      // CURRENT: Load from CSV mock data
-      const allItems = await getMockListings()
-      const foundItem = allItems.find(i => i.objectId === id)
-      
-      // TODO: Replace with blockchain query
-      // import { getItemById } from '@/lib/sui/queries'
-      // const foundItem = await getItemById(id)
-      
-      if (!foundItem) {
+      const fetchedItem = await getItemById(id)
+
+      if (!fetchedItem) {
         setError('Item not found')
+        setItem(null)
       } else {
-        setItem(foundItem)
+        setSelectedImageIndex(0)
+        setImageError(false)
+        setItem(fetchedItem)
       }
     } catch (err) {
       console.error('Error loading item:', err)
@@ -63,12 +55,16 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    void loadItem()
+  }, [loadItem])
 
   // Format price from MIST to SUI
-  const formatPrice = (price: bigint) => {
-    const priceInSui = Number(price) / 1_000_000_000
-    return priceInSui.toFixed(2)
+  const formatPrice = (price: string | bigint) => {
+    return mistToSui(price).toFixed(2)
   }
 
   // Shorten wallet address
@@ -87,7 +83,7 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   // Check if current user is the owner
-  const isOwner = account?.address && item?.seller === account.address
+  const isOwner = account?.address && item?.fields.seller === account.address
 
   // Handle Make Offer click
   const handleMakeOffer = () => {
@@ -141,7 +137,10 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
     )
   }
 
-  const currentImageUrl = getImageUrl(item.walrusImageIds[selectedImageIndex])
+  const fields = item.fields
+  const walrusImageIds = (fields.walrus_image_ids || []) as string[]
+  const currentImageId = walrusImageIds[selectedImageIndex] || ''
+  const currentImageUrl = currentImageId ? getImageUrl(currentImageId) : null
 
   return (
     <div className="min-h-screen">
@@ -161,11 +160,14 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
             <div className="retro-card retro-shadow overflow-hidden">
               <div className="relative aspect-square bg-gray-100">
                 {currentImageUrl && !imageError ? (
-                  <img
+                  <Image
                     src={currentImageUrl}
-                    alt={item.title}
+                    alt={fields.title}
+                    fill
+                    sizes="(min-width: 1024px) 600px, 100vw"
                     onError={() => setImageError(true)}
-                    className="w-full h-full object-cover"
+                    className="object-cover"
+                    unoptimized
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -179,13 +181,13 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
             </div>
 
             {/* Thumbnail gallery */}
-            {item.walrusImageIds.length > 1 && (
+            {walrusImageIds.length > 1 && (
               <div className="grid grid-cols-4 gap-2">
-                {item.walrusImageIds.map((imageId, index) => {
+                {walrusImageIds.map((imageId: string, index: number) => {
                   const thumbUrl = getImageUrl(imageId)
                   return (
                     <button
-                      key={index}
+                      key={`${imageId}-${index}`}
                       onClick={() => {
                         setSelectedImageIndex(index)
                         setImageError(false)
@@ -197,10 +199,13 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
                       } transition-all`}
                     >
                       {thumbUrl ? (
-                        <img
+                        <Image
                           src={thumbUrl}
-                          alt={`${item.title} ${index + 1}`}
-                          className="w-full h-full object-cover"
+                          alt={`${fields.title} ${index + 1}`}
+                          fill
+                          sizes="120px"
+                          className="object-cover"
+                          unoptimized
                         />
                       ) : (
                         <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -220,24 +225,24 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
             <div className="retro-card retro-shadow p-6">
               <div className="flex items-start justify-between mb-4">
                 <h1 className="text-3xl font-black leading-tight flex-1">
-                  {item.title}
+                  {fields.title}
                 </h1>
                 <div className="bg-black text-white px-3 py-1 text-xs font-bold uppercase ml-4">
-                  {item.category}
+                  {fields.category}
                 </div>
               </div>
 
               {/* Price */}
               <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-4xl font-black">{formatPrice(item.price)}</span>
-                <span className="text-xl font-bold opacity-60">{item.currency}</span>
+                <span className="text-4xl font-black">{formatPrice(fields.price)}</span>
+                <span className="text-xl font-bold opacity-60">SUI</span>
               </div>
 
               {/* Seller */}
               <div className="pt-4 border-t-2 border-black border-dashed">
                 <div className="flex items-center justify-between">
                   <span className="text-sm opacity-60 font-semibold">Seller:</span>
-                  <span className="font-mono font-bold">{shortenAddress(item.seller)}</span>
+                  <span className="font-mono font-bold">{shortenAddress(fields.seller)}</span>
                 </div>
               </div>
             </div>
@@ -245,16 +250,46 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
             {/* Description */}
             <div className="retro-card retro-shadow p-6">
               <h2 className="text-xl font-black mb-3">Description</h2>
-              <p className="text-base leading-relaxed opacity-80">
-                {/* TODO: Add description field to mock data */}
-                This is a unique thrifted item available on ThriftChain. 
-                All transactions are secured on the Sui blockchain with 
-                images stored on Walrus decentralized storage.
+              <p className="text-base leading-relaxed opacity-80 whitespace-pre-line">
+                {fields.description}
               </p>
             </div>
 
-            {/* Tags */}
-            {/* TODO: Add tags display once available in data */}
+            {/* Item Metadata */}
+            <div className="retro-card retro-shadow p-6">
+              <h2 className="text-xl font-black mb-3">Item Details</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="font-semibold">Condition:</span>
+                  <span className="ml-2 opacity-80">{fields.condition || 'Unknown'}</span>
+                </div>
+                <div>
+                  <span className="font-semibold">Brand:</span>
+                  <span className="ml-2 opacity-80">{fields.brand || 'Unknown'}</span>
+                </div>
+                <div>
+                  <span className="font-semibold">Size:</span>
+                  <span className="ml-2 opacity-80">{fields.size || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-semibold">Color:</span>
+                  <span className="ml-2 opacity-80">{fields.color || 'N/A'}</span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="font-semibold">Material:</span>
+                  <span className="ml-2 opacity-80">{fields.material || 'N/A'}</span>
+                </div>
+              </div>
+              {fields.tags && fields.tags.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {fields.tags.map((tag: string) => (
+                    <span key={tag} className="text-xs uppercase font-bold bg-black text-white px-2 py-1">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Action Buttons */}
             <div className="retro-card retro-shadow p-6">

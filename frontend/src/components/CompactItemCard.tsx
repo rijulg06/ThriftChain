@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { getWalrusBlobUrl } from "@/lib/walrus/upload"
@@ -7,8 +8,7 @@ import { getWalrusBlobUrl } from "@/lib/walrus/upload"
 export interface CompactItemCardProps {
   objectId: string
   title: string
-  price: bigint
-  currency: string
+  priceMist: bigint
   category: string
   walrusImageIds: string[]
 }
@@ -25,8 +25,7 @@ export interface CompactItemCardProps {
 export function CompactItemCard({
   objectId,
   title,
-  price,
-  currency,
+  priceMist,
   category,
   walrusImageIds,
 }: CompactItemCardProps) {
@@ -34,7 +33,7 @@ export function CompactItemCard({
   const [imageError, setImageError] = useState(false)
 
   // Format price from MIST to SUI
-  const priceInSui = Number(price) / 1_000_000_000
+  const priceInSui = Number(priceMist) / 1_000_000_000
   const formattedPrice = priceInSui.toFixed(2)
 
   // Get image URL (handles Walrus blob IDs and direct URLs)
@@ -71,11 +70,14 @@ export function CompactItemCard({
       {/* Image - Left side */}
       <div className="relative w-48 flex-shrink-0 bg-gray-100 border-r-2 border-black">
         {imageUrl && !imageError ? (
-          <img
+          <Image
             src={imageUrl}
             alt={title}
+            fill
+            sizes="192px"
             onError={() => setImageError(true)}
-            className="w-full h-full object-cover"
+            className="object-cover"
+            unoptimized
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -99,7 +101,7 @@ export function CompactItemCard({
         {/* Price */}
         <div className="flex items-baseline gap-1 mt-auto">
           <span className="text-2xl font-black">{formattedPrice}</span>
-          <span className="text-sm font-bold opacity-60">{currency}</span>
+          <span className="text-sm font-bold opacity-60">SUI</span>
         </div>
       </div>
     </div>

@@ -1,8 +1,9 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ConnectButton, useWallet } from '@suiet/wallet-kit';
+import { useWallet } from '@suiet/wallet-kit';
 import { toast } from 'sonner';
 import { LoginModal } from '@/components/LoginModal';
 import {
@@ -410,12 +411,19 @@ export default function StashPage() {
                   <div key={item.itemId} className="retro-card p-6">
                     <div className="flex gap-4 flex-col md:flex-row">
                       {/* Item Image */}
-                      <img
-                        src={item.itemImage}
-                        alt={item.itemTitle}
-                        className="w-full md:w-32 h-32 object-cover border-2 border-white cursor-pointer"
+                      <div
+                        className="relative w-full md:w-32 h-32 border-2 border-white cursor-pointer overflow-hidden"
                         onClick={() => router.push(`/items/${item.itemId}`)}
-                      />
+                      >
+                        <Image
+                          src={item.itemImage}
+                          alt={item.itemTitle}
+                          fill
+                          sizes="(min-width: 768px) 128px, 100vw"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
                       
                       {/* Item Details */}
                       <div className="flex-1">
@@ -559,12 +567,19 @@ export default function StashPage() {
                 <div key={offer.offerId} className="retro-card p-6">
                   <div className="flex gap-4 flex-col md:flex-row">
                     {/* Item Image */}
-                    <img
-                      src={offer.itemImage}
-                      alt={offer.itemTitle}
-                      className="w-full md:w-32 h-32 object-cover border-2 border-white cursor-pointer"
+                    <div
+                      className="relative w-full md:w-32 h-32 border-2 border-white cursor-pointer overflow-hidden"
                       onClick={() => router.push(`/items/${offer.itemId}`)}
-                    />
+                    >
+                      <Image
+                        src={offer.itemImage}
+                        alt={offer.itemTitle}
+                        fill
+                        sizes="(min-width: 768px) 128px, 100vw"
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
                     
                     {/* Offer Details */}
                     <div className="flex-1">
@@ -690,12 +705,19 @@ export default function StashPage() {
                   <div key={tx.transactionId} className="retro-card p-6">
                     <div className="flex gap-4 flex-col md:flex-row">
                       {/* Item Image */}
-                      <img
-                        src={tx.itemImage}
-                        alt={tx.itemTitle}
-                        className="w-full md:w-32 h-32 object-cover border-2 border-white cursor-pointer"
+                      <div
+                        className="relative w-full md:w-32 h-32 border-2 border-white cursor-pointer overflow-hidden"
                         onClick={() => router.push(`/items/${tx.itemId}`)}
-                      />
+                      >
+                        <Image
+                          src={tx.itemImage}
+                          alt={tx.itemTitle}
+                          fill
+                          sizes="(min-width: 768px) 128px, 100vw"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
                       
                       {/* Transaction Details */}
                       <div className="flex-1">

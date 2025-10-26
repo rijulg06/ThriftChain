@@ -27,13 +27,16 @@ export interface ThriftItemObject {
     title: string                     // String
     description: string               // String
     price: string                     // u64 (as string to avoid precision loss)
-    currency: string                  // String (e.g., "SUI", "USDC")
     category: string                  // String
     tags: string[]                    // vector<String>
     walrus_image_ids: string[]        // vector<String> - Walrus blob IDs
-    is_for_trade: boolean             // bool
     status: number                    // u8 (0=active, 1=sold, 2=cancelled)
     created_at: string                // u64 timestamp in milliseconds
+    condition: string                 // String
+    brand: string                     // String
+    size: string                      // String
+    color: string                     // String
+    material: string                  // String
   }
 }
 
@@ -52,10 +55,10 @@ export interface OfferObject {
     buyer: string                     // address
     seller: string                    // address
     amount: string                    // u64
-    currency: string                  // String
     message: string                   // String - Optional message from buyer
-    status: number                    // u8 (0=pending, 1=accepted, 2=rejected, 3=cancelled)
+    status: number                    // u8 (0=pending, 1=countered, 2=accepted, 3=rejected, 4=cancelled)
     expires_at: string                // u64 timestamp
+    is_counter: boolean               // bool
     created_at: string                // u64 timestamp
   }
 }
@@ -75,10 +78,9 @@ export interface EscrowObject {
     seller: string                    // address
     item_id: string                   // ID - References ThriftItem
     amount: string                    // u64 - Amount in escrow
-    currency: string                  // String
-    status: number                    // u8 (0=active, 1=completed, 2=refunded, 3=disputed)
+    status: number                    // u8 (0=active, 1=completed, 2=disputed, 3=refunded)
     created_at: string                // u64 timestamp
-    delivery_confirmed: boolean       // bool
+    completed_at: string              // u64 timestamp
   }
 }
 
@@ -100,10 +102,10 @@ export enum ItemStatus {
  */
 export enum OfferStatus {
   Pending = 0,
-  Accepted = 1,
-  Rejected = 2,
-  Cancelled = 3,
-  Expired = 4,
+  Countered = 1,
+  Accepted = 2,
+  Rejected = 3,
+  Cancelled = 4,
 }
 
 /**
@@ -112,8 +114,8 @@ export enum OfferStatus {
 export enum EscrowStatus {
   Active = 0,
   Completed = 1,
-  Refunded = 2,
-  Disputed = 3,
+  Disputed = 2,
+  Refunded = 3,
 }
 
 /**
@@ -125,11 +127,6 @@ export interface WalrusBlobReference {
   mimeType?: string                   // Optional: image/jpeg, image/png, etc.
   size?: number                       // Optional: file size in bytes
 }
-
-/**
- * Currency types supported
- */
-export type SupportedCurrency = 'SUI' | 'USDC'
 
 // ============================================
 // QUERY RESULT TYPES
@@ -154,7 +151,6 @@ export interface ItemQueryFilters {
   maxPrice?: bigint                   // Maximum price in MIST
   status?: ItemStatus                 // Filter by status
   tags?: string[]                     // Filter by tags (items must have ALL tags)
-  isForTrade?: boolean                // Filter by trade availability
 }
 
 /**
@@ -189,11 +185,14 @@ export interface CreateItemParams {
   title: string
   description: string
   price: bigint                       // In MIST (1 SUI = 1_000_000_000 MIST)
-  currency: SupportedCurrency
   category: string
   tags: string[]
   walrusImageIds: string[]            // Walrus blob IDs (must upload first)
-  tradePreferences?: string[]
+  condition: string
+  brand: string
+  size: string
+  color: string
+  material: string
 }
 
 /**
@@ -202,7 +201,6 @@ export interface CreateItemParams {
 export interface CreateOfferParams {
   itemId: string                      // Sui object ID of ThriftItem
   amount: bigint                      // Offer amount in MIST
-  currency: SupportedCurrency
   message?: string                    // Optional message to seller
   expiresInDays?: number              // Default: 7 days
 }
@@ -297,10 +295,10 @@ export function itemStatusToString(status: number): string {
 export function offerStatusToString(status: number): string {
   switch (status) {
     case OfferStatus.Pending: return 'Pending'
+    case OfferStatus.Countered: return 'Countered'
     case OfferStatus.Accepted: return 'Accepted'
     case OfferStatus.Rejected: return 'Rejected'
     case OfferStatus.Cancelled: return 'Cancelled'
-    case OfferStatus.Expired: return 'Expired'
     default: return 'Unknown'
   }
 }
@@ -312,8 +310,8 @@ export function escrowStatusToString(status: number): string {
   switch (status) {
     case EscrowStatus.Active: return 'Active'
     case EscrowStatus.Completed: return 'Completed'
-    case EscrowStatus.Refunded: return 'Refunded'
     case EscrowStatus.Disputed: return 'Disputed'
+    case EscrowStatus.Refunded: return 'Refunded'
     default: return 'Unknown'
   }
 }
@@ -334,16 +332,10 @@ export function mistToSui(mist: string | bigint): number {
 }
 
 /**
- * Format price for display (e.g., "1.5 SUI", "100 USDC")
+ * Format price for display in SUI (defaults to 4 decimal places)
  */
-export function formatPrice(mist: string | bigint, currency: SupportedCurrency): string {
-  if (currency === 'SUI') {
-    return `${mistToSui(mist).toFixed(4)} SUI`
-  }
-  // USDC uses 6 decimals
-  const mistBigInt = typeof mist === 'string' ? BigInt(mist) : mist
-  const usdc = Number(mistBigInt) / 1_000_000
-  return `${usdc.toFixed(2)} USDC`
+export function formatPrice(mist: string | bigint, decimals = 4): string {
+  return `${mistToSui(mist).toFixed(decimals)} SUI`
 }
 
 /**

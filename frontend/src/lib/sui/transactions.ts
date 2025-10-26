@@ -11,6 +11,7 @@
  */
 
 import { Transaction } from '@mysten/sui/transactions'
+import { bcs } from '@mysten/sui/bcs'
 import { suiClient } from './client'
 import { THRIFTCHAIN_PACKAGE_ID } from './queries'
 import type {
@@ -20,6 +21,12 @@ import type {
   ConfirmDeliveryParams,
 } from '../types/sui-objects'
 
+type SignAndExecuteParams = Parameters<typeof suiClient.signAndExecuteTransaction>[0]
+type TransactionSigner = SignAndExecuteParams['signer']
+type SignAndExecuteResult = Awaited<ReturnType<typeof suiClient.signAndExecuteTransaction>>
+type ObjectChange = NonNullable<SignAndExecuteResult['objectChanges']>[number]
+type CreatedObjectChange = Extract<ObjectChange, { type: 'created'; objectId: string }>
+
 // ============================================
 // CONFIGURATION
 // ============================================
@@ -27,13 +34,20 @@ import type {
 /**
  * Module names in the smart contract
  */
-const MODULE_NAME = 'marketplace'
+const MODULE_NAME = 'thriftchain'
+
+/**
+ * Shared object IDs from deployment
+ */
+const MARKETPLACE_ID = process.env.NEXT_PUBLIC_MARKETPLACE_ID || ''
+const ITEM_CAP_ID = process.env.NEXT_PUBLIC_ITEM_CAP_ID || ''
+const CLOCK_ID = process.env.NEXT_PUBLIC_CLOCK_ID || '0x6'
 
 /**
  * Gas budget for transactions (in MIST)
  * Adjust based on actual gas costs after deployment
  */
-const DEFAULT_GAS_BUDGET = 10_000_000 // 0.01 SUI
+const DEFAULT_GAS_BUDGET = 100_000_000 // 0.1 SUI
 
 // ============================================
 // ITEM TRANSACTIONS
@@ -42,31 +56,106 @@ const DEFAULT_GAS_BUDGET = 10_000_000 // 0.01 SUI
 /**
  * Build transaction to create a new item listing
  *
- * TEMPORARY: Simplified version without complex vector arguments
- * TODO: Re-enable once smart contracts are deployed and vector serialization is fixed
+ * This calls the Move smart contract to create a real on-chain item.
+ * The item will be stored in the shared Marketplace table.
  *
  * @param params - Item creation parameters
  * @returns Transaction ready to be signed
  */
 export function buildCreateItemTransaction(params: CreateItemParams): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID) {
+    throw new Error('NEXT_PUBLIC_THRIFTCHAIN_PACKAGE_ID not configured')
+  }
+  if (!MARKETPLACE_ID) {
+    throw new Error('NEXT_PUBLIC_MARKETPLACE_ID not configured')
+  }
+  if (!ITEM_CAP_ID) {
+    throw new Error('NEXT_PUBLIC_ITEM_CAP_ID not configured')
+  }
+
   const tx = new Transaction()
 
-  // TODO: Once smart contracts are deployed and vector serialization is fixed:
-  // 1. Verify THRIFTCHAIN_PACKAGE_ID is set
-  // 2. Create proper Move vectors for tags and walrusImageIds  
-  // 3. Call the actual marketplace::create_item function
+  // Validate and prepare arrays
+  const tags = Array.isArray(params.tags) ? params.tags : []
+  const walrusImageIds = Array.isArray(params.walrusImageIds) ? params.walrusImageIds : []
   
-  console.warn('[TEMP] Transaction building simplified - awaiting smart contract deployment')
-  console.log('Would create item with params:', {
-    title: params.title,
-    description: params.description,
-    category: params.category,
-    price: params.price.toString(),
-    tags: params.tags,
-    images: params.walrusImageIds.length,
+  console.log('Creating item with tags:', tags)
+  console.log('Creating item with images:', walrusImageIds)
+
+  // Manually encode strings as Move String (which is vector<u8>)
+  const encodeMovieString = (str: string): Uint8Array => {
+    const bytes = new TextEncoder().encode(str)
+    // Move String format: length prefix (ULEB128) + UTF-8 bytes
+    // For simplicity, just return the UTF-8 bytes and let BCS handle length
+    return bytes
+  }
+
+  // Encode each string to bytes
+  const tagsAsVecOfBytes: Uint8Array[] = tags.map(encodeMovieString)
+  const imagesAsVecOfBytes: Uint8Array[] = walrusImageIds.map(encodeMovieString)
+
+  console.log('Tags as byte arrays:', tagsAsVecOfBytes.map(b => b.length))
+  console.log('Images as byte arrays:', imagesAsVecOfBytes.map(b => b.length))
+
+  // Serialize vector<vector<u8>> manually with proper ULEB encoding
+  const encodeVectorOfVectors = (vectors: Uint8Array[]): Uint8Array => {
+    // Calculate total size
+    let totalSize = 0
+    
+    // Add size for vector length (we'll use simple length encoding)
+    const lengthBytes = new Uint8Array([vectors.length])
+    totalSize += 1
+    
+    // Add sizes for each inner vector (1 byte length + data)
+    vectors.forEach(v => {
+      totalSize += 1 + v.length
+    })
+    
+    const result = new Uint8Array(totalSize)
+    let offset = 0
+    
+    // Write outer vector length
+    result[offset++] = vectors.length
+    
+    // Write each inner vector
+    vectors.forEach(v => {
+      result[offset++] = v.length
+      result.set(v, offset)
+      offset += v.length
+    })
+    
+    return result
+  }
+
+  const tagsBytes = encodeVectorOfVectors(tagsAsVecOfBytes)
+  const imagesBytes = encodeVectorOfVectors(imagesAsVecOfBytes)
+
+  console.log('Final tags bytes:', tagsBytes)
+  console.log('Final images bytes:', imagesBytes)
+
+  // Call create_item entry function
+  tx.moveCall({
+    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::create_item`,
+    arguments: [
+      tx.object(MARKETPLACE_ID),           // marketplace: &mut Marketplace
+      tx.object(ITEM_CAP_ID),              // cap: &ItemCap
+      tx.pure.string(params.title),        // title: String
+      tx.pure.string(params.description),  // description: String
+      tx.pure.u64(params.price),           // price: u64
+      tx.pure.string(params.category),     // category: String
+      tx.pure(tagsBytes),                  // tags: vector<String>
+      tx.pure(imagesBytes),                // walrus_image_ids: vector<String>
+      tx.pure.string(params.condition),    // condition: String
+      tx.pure.string(params.brand),        // brand: String
+      tx.pure.string(params.size),         // size: String
+      tx.pure.string(params.color),        // color: String
+      tx.pure.string(params.material),     // material: String
+      tx.object(CLOCK_ID),                 // clock: &Clock
+    ],
   })
 
-  // Return empty transaction for now
+  tx.setGasBudget(DEFAULT_GAS_BUDGET)
+
   return tx
 }
 
@@ -81,13 +170,19 @@ export function buildUpdateItemPriceTransaction(
   itemId: string,
   newPrice: bigint
 ): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
+    throw new Error('Package or Marketplace ID not configured')
+  }
+
   const tx = new Transaction()
 
   tx.moveCall({
-    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::update_item_price`,
+    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::update_item_price_by_id`,
     arguments: [
-      tx.object(itemId),
+      tx.object(MARKETPLACE_ID),
+      tx.pure.id(itemId),
       tx.pure.u64(newPrice),
+      tx.object(CLOCK_ID),
     ],
   })
 
@@ -103,11 +198,19 @@ export function buildUpdateItemPriceTransaction(
  * @returns Transaction ready to be signed
  */
 export function buildCancelItemTransaction(itemId: string): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
+    throw new Error('Package or Marketplace ID not configured')
+  }
+
   const tx = new Transaction()
 
   tx.moveCall({
-    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::cancel_item`,
-    arguments: [tx.object(itemId)],
+    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::cancel_item_by_id`,
+    arguments: [
+      tx.object(MARKETPLACE_ID),
+      tx.pure.id(itemId),
+      tx.object(CLOCK_ID),
+    ],
   })
 
   tx.setGasBudget(DEFAULT_GAS_BUDGET)
@@ -132,23 +235,24 @@ export function buildCancelItemTransaction(itemId: string): Transaction {
  * @returns Transaction ready to be signed
  */
 export function buildCreateOfferTransaction(params: CreateOfferParams): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
+    throw new Error('Package or Marketplace ID not configured')
+  }
+
   const tx = new Transaction()
-
-  // Calculate expiration timestamp (default 7 days from now)
-  const expiresInMs = (params.expiresInDays || 7) * 24 * 60 * 60 * 1000
-  const expiresAt = Date.now() + expiresInMs
-
-  // Split coins for the offer amount
-  const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(params.amount)])
+  
+  const expiresInDays = params.expiresInDays ?? 7
+  const expiresInHours = expiresInDays * 24
 
   tx.moveCall({
     target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::create_offer`,
     arguments: [
-      tx.object(params.itemId),
-      coin, // Payment coin
-      tx.pure.string(params.currency),
+      tx.object(MARKETPLACE_ID),
+      tx.pure.id(params.itemId),
+      tx.pure.u64(params.amount),
       tx.pure.string(params.message || ''),
-      tx.pure.u64(BigInt(expiresAt)),
+      tx.pure.u64(expiresInHours),
+      tx.object(CLOCK_ID),
     ],
   })
 
@@ -164,11 +268,19 @@ export function buildCreateOfferTransaction(params: CreateOfferParams): Transact
  * @returns Transaction ready to be signed
  */
 export function buildCancelOfferTransaction(offerId: string): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
+    throw new Error('Package or Marketplace ID not configured')
+  }
+
   const tx = new Transaction()
 
   tx.moveCall({
     target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::cancel_offer`,
-    arguments: [tx.object(offerId)],
+    arguments: [
+      tx.object(MARKETPLACE_ID),
+      tx.pure.id(offerId),
+      tx.object(CLOCK_ID),
+    ],
   })
 
   tx.setGasBudget(DEFAULT_GAS_BUDGET)
@@ -183,11 +295,19 @@ export function buildCancelOfferTransaction(offerId: string): Transaction {
  * @returns Transaction ready to be signed
  */
 export function buildRejectOfferTransaction(offerId: string): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
+    throw new Error('Package or Marketplace ID not configured')
+  }
+
   const tx = new Transaction()
 
   tx.moveCall({
     target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::reject_offer`,
-    arguments: [tx.object(offerId)],
+    arguments: [
+      tx.object(MARKETPLACE_ID),
+      tx.pure.id(offerId),
+      tx.object(CLOCK_ID),
+    ],
   })
 
   tx.setGasBudget(DEFAULT_GAS_BUDGET)
@@ -212,13 +332,19 @@ export function buildRejectOfferTransaction(offerId: string): Transaction {
  * @returns Transaction ready to be signed
  */
 export function buildAcceptOfferTransaction(params: AcceptOfferParams): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
+    throw new Error('Package or Marketplace ID not configured')
+  }
+
   const tx = new Transaction()
 
   tx.moveCall({
     target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::accept_offer`,
     arguments: [
-      tx.object(params.offerId),
-      tx.object(params.itemId),
+      tx.object(MARKETPLACE_ID),
+      tx.pure.id(params.offerId),
+      tx.pure.id(params.itemId),
+      tx.object(CLOCK_ID),
     ],
   })
 
@@ -240,11 +366,19 @@ export function buildAcceptOfferTransaction(params: AcceptOfferParams): Transact
  * @returns Transaction ready to be signed
  */
 export function buildConfirmDeliveryTransaction(params: ConfirmDeliveryParams): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
+    throw new Error('Package or Marketplace ID not configured')
+  }
+
   const tx = new Transaction()
 
   tx.moveCall({
     target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::confirm_delivery`,
-    arguments: [tx.object(params.escrowId)],
+    arguments: [
+      tx.object(MARKETPLACE_ID),
+      tx.pure.id(params.escrowId),
+      tx.object(CLOCK_ID),
+    ],
   })
 
   tx.setGasBudget(DEFAULT_GAS_BUDGET)
@@ -263,13 +397,18 @@ export function buildDisputeEscrowTransaction(
   escrowId: string,
   reason: string
 ): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
+    throw new Error('Package or Marketplace ID not configured')
+  }
+
   const tx = new Transaction()
 
   tx.moveCall({
     target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::dispute_escrow`,
     arguments: [
-      tx.object(escrowId),
-      tx.pure.string(reason),
+      tx.object(MARKETPLACE_ID),
+      tx.pure.id(escrowId),
+      tx.object(CLOCK_ID),
     ],
   })
 
@@ -285,11 +424,19 @@ export function buildDisputeEscrowTransaction(
  * @returns Transaction ready to be signed
  */
 export function buildRefundEscrowTransaction(escrowId: string): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
+    throw new Error('Package or Marketplace ID not configured')
+  }
+
   const tx = new Transaction()
 
   tx.moveCall({
     target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::refund_escrow`,
-    arguments: [tx.object(escrowId)],
+    arguments: [
+      tx.object(MARKETPLACE_ID),
+      tx.pure.id(escrowId),
+      tx.object(CLOCK_ID),
+    ],
   })
 
   tx.setGasBudget(DEFAULT_GAS_BUDGET)
@@ -308,7 +455,7 @@ export function buildRefundEscrowTransaction(escrowId: string): Transaction {
  * @param signer - Wallet signer
  * @returns Transaction result with created object IDs
  */
-export async function executeTransaction(tx: Transaction, signer: any) {
+export async function executeTransaction(tx: Transaction, signer: TransactionSigner): Promise<SignAndExecuteResult> {
   try {
     // Sign and execute transaction
     const result = await suiClient.signAndExecuteTransaction({
@@ -339,14 +486,16 @@ export async function executeTransaction(tx: Transaction, signer: any) {
  * @param result - Transaction execution result
  * @returns Array of created object IDs
  */
-export function extractCreatedObjectIds(result: any): string[] {
-  if (!result.objectChanges) {
-    return []
-  }
+function isCreatedObjectChange(change: ObjectChange): change is CreatedObjectChange {
+  return change.type === 'created'
+}
 
-  return result.objectChanges
-    .filter((change: any) => change.type === 'created')
-    .map((change: any) => change.objectId)
+export function extractCreatedObjectIds(result: SignAndExecuteResult): string[] {
+  const objectChanges = result.objectChanges ?? []
+
+  return objectChanges
+    .filter(isCreatedObjectChange)
+    .map(change => change.objectId)
 }
 
 /**
@@ -364,7 +513,7 @@ export async function waitForTransactionIndexing(
     try {
       await suiClient.getTransactionBlock({ digest: txDigest })
       return true
-    } catch (error) {
+    } catch {
       // Transaction not indexed yet, wait and retry
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
@@ -384,6 +533,7 @@ export async function waitForTransactionIndexing(
  * @returns Estimated gas cost in MIST
  */
 export async function estimateGas(tx: Transaction, sender: string): Promise<bigint> {
+  void sender
   try {
     const dryRunResult = await suiClient.dryRunTransactionBlock({
       transactionBlock: await tx.build({ client: suiClient }),
@@ -423,6 +573,7 @@ export function buildBatchTransaction(operations: Transaction[]): Transaction {
 
   // Merge all operations into single transaction
   operations.forEach(operation => {
+    void operation
     // Note: This is simplified - actual implementation depends on Move contract design
     // You might need to design batch functions in the smart contract
   })

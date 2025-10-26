@@ -1,9 +1,10 @@
 "use client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import { getMockListings } from "@/lib/data/mock-listings"
 import { CompactItemCard } from "@/components/CompactItemCard"
 import type { ItemCardProps } from "@/components/ItemCard"
+import { getAllItems } from "@/lib/sui/queries"
+import { ItemStatus } from "@/lib/types/sui-objects"
 
 export default function Home() {
   const router = useRouter()
@@ -13,10 +14,24 @@ export default function Home() {
   useEffect(() => {
     // Load items for the carousel
     const loadItems = async () => {
-      const allItems = await getMockListings()
-      // Shuffle and take first 12 items for variety
-      const shuffled = [...allItems].sort(() => Math.random() - 0.5)
-      setItems(shuffled.slice(0, 20))
+      try {
+        const allItems = await getAllItems(undefined, { limit: 50 })
+        const activeItems = allItems.data.filter(item => item.fields.status === ItemStatus.Active)
+
+        const mapped: ItemCardProps[] = activeItems.map(item => ({
+          objectId: item.objectId,
+          title: item.fields.title,
+          priceMist: BigInt(item.fields.price),
+          category: item.fields.category,
+          walrusImageIds: item.fields.walrus_image_ids || [],
+          seller: item.fields.seller,
+        }))
+
+        const shuffled = [...mapped].sort(() => Math.random() - 0.5)
+        setItems(shuffled.slice(0, 20))
+      } catch (error) {
+        console.error('Failed to load marketplace items:', error)
+      }
     }
     loadItems()
   }, [])

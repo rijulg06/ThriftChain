@@ -10,7 +10,7 @@
  * - For search: Use AI search layer which returns object IDs, then fetch here
  */
 
-import { SuiClient } from '@mysten/sui/client'
+import type { SuiObjectResponse } from '@mysten/sui/client'
 import { suiClient } from './client'
 import type {
   ThriftItemObject,
@@ -18,9 +18,8 @@ import type {
   EscrowObject,
   PaginatedObjectsResponse,
   ItemQueryFilters,
-  OfferQueryFilters,
-  ItemStatus,
 } from '../types/sui-objects'
+import { ItemStatus } from '../types/sui-objects'
 
 // ============================================
 // CONTRACT CONFIGURATION
@@ -47,6 +46,140 @@ export const STRUCT_TYPES = {
   ESCROW: `${THRIFTCHAIN_PACKAGE_ID}::marketplace::Escrow`,
 } as const
 
+export const MARKETPLACE_OBJECT_ID = process.env.NEXT_PUBLIC_MARKETPLACE_ID || ''
+
+if (!MARKETPLACE_OBJECT_ID && process.env.NODE_ENV === 'production') {
+  console.warn('WARNING: NEXT_PUBLIC_MARKETPLACE_ID not set. Marketplace queries will fail.')
+}
+
+type MarketplaceTables = {
+  itemsTableId: string
+  offersTableId: string
+  escrowsTableId: string
+}
+
+let marketplaceTablesCache: MarketplaceTables | null = null
+
+type TableHandle = {
+  fields?: {
+    id?: {
+      id?: string
+    }
+  }
+}
+
+type MarketplaceObjectFields = {
+  items?: TableHandle
+  offers?: TableHandle
+  escrows?: TableHandle
+}
+
+function extractTableId(handle?: TableHandle): string | null {
+  return handle?.fields?.id?.id ?? null
+}
+
+async function getMarketplaceTables(): Promise<MarketplaceTables> {
+  if (marketplaceTablesCache) {
+    return marketplaceTablesCache
+  }
+
+  if (!MARKETPLACE_OBJECT_ID) {
+    throw new Error('Marketplace object ID is not configured. Set NEXT_PUBLIC_MARKETPLACE_ID in the environment.')
+  }
+
+  const response = await suiClient.getObject({
+    id: MARKETPLACE_OBJECT_ID,
+    options: {
+      showContent: true,
+      showType: true,
+    },
+  })
+
+  const content = response.data?.content
+  if (!content || content.dataType !== 'moveObject') {
+    throw new Error('Failed to load marketplace object content from blockchain.')
+  }
+
+  const fields = content.fields as MarketplaceObjectFields
+  const itemsTableId = extractTableId(fields.items)
+  const offersTableId = extractTableId(fields.offers)
+  const escrowsTableId = extractTableId(fields.escrows)
+
+  if (!itemsTableId || !offersTableId || !escrowsTableId) {
+    throw new Error('Marketplace tables are missing expected IDs (items/offers/escrows).')
+  }
+
+  marketplaceTablesCache = {
+    itemsTableId,
+    offersTableId,
+    escrowsTableId,
+  }
+
+  return marketplaceTablesCache
+}
+
+type ParseFn<T> = (response: SuiObjectResponse) => T | null
+
+async function fetchTableEntries<T>(
+  tableId: string,
+  parseFn: ParseFn<T>,
+  options?: { cursor?: string; limit?: number }
+): Promise<PaginatedObjectsResponse<T>> {
+  const dynamicFields = await suiClient.getDynamicFields({
+    parentId: tableId,
+    cursor: options?.cursor,
+    limit: options?.limit ?? 50,
+  })
+
+  if (dynamicFields.data.length === 0) {
+    return {
+      data: [],
+      nextCursor: dynamicFields.nextCursor ?? null,
+      hasNextPage: dynamicFields.hasNextPage,
+    }
+  }
+
+  const objects = await Promise.all(
+    dynamicFields.data.map(field =>
+      suiClient.getObject({
+        id: field.objectId,
+        options: {
+          showContent: true,
+          showType: true,
+        },
+      })
+    )
+  )
+
+  const parsed = objects
+    .map(obj => parseFn(obj))
+    .filter((item): item is T => item !== null)
+
+  return {
+    data: parsed,
+    nextCursor: dynamicFields.nextCursor ?? null,
+    hasNextPage: dynamicFields.hasNextPage,
+  }
+}
+
+async function fetchAllTableObjects<T>(
+  tableId: string,
+  parseFn: ParseFn<T>
+): Promise<T[]> {
+  const results: T[] = []
+  let cursor: string | undefined
+  let hasNext = true
+
+  while (hasNext) {
+    const page = await fetchTableEntries(tableId, parseFn, { cursor, limit: 50 })
+    results.push(...page.data)
+    cursor = page.nextCursor ?? undefined
+    hasNext = Boolean(page.hasNextPage && cursor)
+  }
+
+  return results
+}
+
 // ============================================
 // ITEM QUERIES
 // ============================================
@@ -66,29 +199,15 @@ export async function getAllItems(
   }
 ): Promise<PaginatedObjectsResponse<ThriftItemObject>> {
   try {
-    // Query all ThriftItem objects
-    const response = await suiClient.getOwnedObjects({
-      filter: {
-        StructType: STRUCT_TYPES.THRIFT_ITEM,
-      },
-      options: {
-        showContent: true,
-        showType: true,
-      },
-      cursor: options?.cursor,
-      limit: options?.limit || 50,
-    })
+    const { itemsTableId } = await getMarketplaceTables()
+    const tableResponse = await fetchTableEntries(itemsTableId, parseThriftItemObject, options)
 
-    // Parse and filter results
-    const items: ThriftItemObject[] = response.data
-      .map(obj => parseThriftItemObject(obj))
-      .filter(item => item !== null)
-      .filter(item => applyItemFilters(item, filters)) as ThriftItemObject[]
+    const filtered = tableResponse.data.filter(item => applyItemFilters(item, filters))
 
     return {
-      data: items,
-      nextCursor: response.nextCursor,
-      hasNextPage: response.hasNextPage,
+      data: filtered,
+      nextCursor: tableResponse.nextCursor,
+      hasNextPage: tableResponse.hasNextPage,
     }
   } catch (error) {
     console.error('Error fetching items from blockchain:', error)
@@ -193,23 +312,9 @@ export async function getItemsByCategory(
  */
 export async function getOffersByItem(itemId: string): Promise<OfferObject[]> {
   try {
-    // Query all Offer objects
-    const response = await suiClient.getOwnedObjects({
-      filter: {
-        StructType: STRUCT_TYPES.OFFER,
-      },
-      options: {
-        showContent: true,
-        showType: true,
-      },
-    })
-
-    // Parse and filter for specific item
-    const offers: OfferObject[] = response.data
-      .map(obj => parseOfferObject(obj))
-      .filter(offer => offer !== null && offer.fields.item_id === itemId) as OfferObject[]
-
-    return offers
+    const { offersTableId } = await getMarketplaceTables()
+    const offers = await fetchAllTableObjects(offersTableId, parseOfferObject)
+    return offers.filter(offer => offer.fields.item_id === itemId)
   } catch (error) {
     console.error(`Error fetching offers for item ${itemId}:`, error)
     return []
@@ -224,22 +329,9 @@ export async function getOffersByItem(itemId: string): Promise<OfferObject[]> {
  */
 export async function getOffersByBuyer(buyerAddress: string): Promise<OfferObject[]> {
   try {
-    const response = await suiClient.getOwnedObjects({
-      owner: buyerAddress,
-      filter: {
-        StructType: STRUCT_TYPES.OFFER,
-      },
-      options: {
-        showContent: true,
-        showType: true,
-      },
-    })
-
-    const offers: OfferObject[] = response.data
-      .map(obj => parseOfferObject(obj))
-      .filter(offer => offer !== null) as OfferObject[]
-
-    return offers
+    const { offersTableId } = await getMarketplaceTables()
+    const offers = await fetchAllTableObjects(offersTableId, parseOfferObject)
+    return offers.filter(offer => offer.fields.buyer === buyerAddress)
   } catch (error) {
     console.error(`Error fetching offers by buyer ${buyerAddress}:`, error)
     return []
@@ -308,22 +400,9 @@ export async function getOfferById(offerId: string): Promise<OfferObject | null>
  */
 export async function getEscrowsByBuyer(buyerAddress: string): Promise<EscrowObject[]> {
   try {
-    const response = await suiClient.getOwnedObjects({
-      owner: buyerAddress,
-      filter: {
-        StructType: STRUCT_TYPES.ESCROW,
-      },
-      options: {
-        showContent: true,
-        showType: true,
-      },
-    })
-
-    const escrows: EscrowObject[] = response.data
-      .map(obj => parseEscrowObject(obj))
-      .filter(escrow => escrow !== null) as EscrowObject[]
-
-    return escrows
+    const { escrowsTableId } = await getMarketplaceTables()
+    const escrows = await fetchAllTableObjects(escrowsTableId, parseEscrowObject)
+    return escrows.filter(escrow => escrow.fields.buyer === buyerAddress)
   } catch (error) {
     console.error(`Error fetching escrows for buyer ${buyerAddress}:`, error)
     return []
@@ -364,19 +443,21 @@ export async function getEscrowById(escrowId: string): Promise<EscrowObject | nu
 /**
  * Parse raw Sui object response into ThriftItemObject
  */
-function parseThriftItemObject(response: any): ThriftItemObject | null {
+function parseThriftItemObject(response: SuiObjectResponse): ThriftItemObject | null {
   try {
-    if (!response.data?.content || response.data.content.dataType !== 'moveObject') {
+    const data = response.data
+
+    if (!data?.content || data.content.dataType !== 'moveObject') {
       return null
     }
 
-    const content = response.data.content as any
+    const fields = data.content.fields as ThriftItemObject['fields']
 
     return {
-      objectId: response.data.objectId,
-      version: response.data.version,
-      digest: response.data.digest,
-      fields: content.fields,
+      objectId: data.objectId,
+      version: data.version,
+      digest: data.digest,
+      fields,
     }
   } catch (error) {
     console.error('Error parsing ThriftItem:', error)
@@ -387,19 +468,21 @@ function parseThriftItemObject(response: any): ThriftItemObject | null {
 /**
  * Parse raw Sui object response into OfferObject
  */
-function parseOfferObject(response: any): OfferObject | null {
+function parseOfferObject(response: SuiObjectResponse): OfferObject | null {
   try {
-    if (!response.data?.content || response.data.content.dataType !== 'moveObject') {
+    const data = response.data
+
+    if (!data?.content || data.content.dataType !== 'moveObject') {
       return null
     }
 
-    const content = response.data.content as any
+    const fields = data.content.fields as OfferObject['fields']
 
     return {
-      objectId: response.data.objectId,
-      version: response.data.version,
-      digest: response.data.digest,
-      fields: content.fields,
+      objectId: data.objectId,
+      version: data.version,
+      digest: data.digest,
+      fields,
     }
   } catch (error) {
     console.error('Error parsing Offer:', error)
@@ -410,19 +493,21 @@ function parseOfferObject(response: any): OfferObject | null {
 /**
  * Parse raw Sui object response into EscrowObject
  */
-function parseEscrowObject(response: any): EscrowObject | null {
+function parseEscrowObject(response: SuiObjectResponse): EscrowObject | null {
   try {
-    if (!response.data?.content || response.data.content.dataType !== 'moveObject') {
+    const data = response.data
+
+    if (!data?.content || data.content.dataType !== 'moveObject') {
       return null
     }
 
-    const content = response.data.content as any
+    const fields = data.content.fields as EscrowObject['fields']
 
     return {
-      objectId: response.data.objectId,
-      version: response.data.version,
-      digest: response.data.digest,
-      fields: content.fields,
+      objectId: data.objectId,
+      version: data.version,
+      digest: data.digest,
+      fields,
     }
   } catch (error) {
     console.error('Error parsing Escrow:', error)
@@ -451,10 +536,6 @@ function applyItemFilters(item: ThriftItemObject, filters?: ItemQueryFilters): b
     return false
   }
 
-  // Filter by trade availability
-  if (filters.isForTrade !== undefined && item.fields.is_for_trade !== filters.isForTrade) {
-    return false
-  }
 
   // Filter by price range
   if (filters.minPrice !== undefined) {

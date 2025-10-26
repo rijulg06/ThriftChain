@@ -35,8 +35,8 @@ export async function POST(request: Request) {
     const maybeIdToken = await flow.handleAuthCallback(hash)
     const session = await flow.getSession()
     return NextResponse.json({ ok: true, idTokenPresent: !!maybeIdToken, session })
-  } catch (e: any) {
-    console.error('Enoki complete error', e)
+  } catch (error: unknown) {
+    console.error('Enoki complete error', error)
     return NextResponse.json({ message: 'Failed to complete zkLogin via Enoki' }, { status: 500 })
   }
 }

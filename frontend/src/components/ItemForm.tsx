@@ -1,9 +1,9 @@
 "use client"
 
+import Image from "next/image"
 import { useState, useRef } from "react"
 import { useWallet } from "@suiet/wallet-kit"
 import { buildCreateItemTransaction } from "@/lib/sui/transactions"
-import { suiClient } from "@/lib/sui/client"
 import { Button } from "./ui/button"
 import { LoginModal } from "./LoginModal"
 import { uploadMultipleToWalrus } from "@/lib/walrus/upload"
@@ -27,6 +27,15 @@ const CATEGORIES = [
   "Other"
 ]
 
+const CONDITIONS = [
+  "New",
+  "Like New",
+  "Excellent",
+  "Good",
+  "Fair",
+  "Needs Repair"
+]
+
 export function ItemForm() {
   const wallet = useWallet()
   const { connected, account } = wallet
@@ -37,6 +46,11 @@ export function ItemForm() {
   const [description, setDescription] = useState("")
   const [price, setPrice] = useState("")
   const [category, setCategory] = useState(CATEGORIES[0])
+  const [condition, setCondition] = useState(CONDITIONS[0])
+  const [brand, setBrand] = useState("")
+  const [size, setSize] = useState("")
+  const [color, setColor] = useState("")
+  const [material, setMaterial] = useState("")
   const [tags, setTags] = useState("")
   const [images, setImages] = useState<UploadedImage[]>([])
 
@@ -76,51 +90,6 @@ export function ItemForm() {
       return updated
     })
   }
-
-  // Upload single image to Walrus
-  const uploadImage = async (image: UploadedImage, index: number): Promise<string> => {
-    setImages(prev => {
-      const updated = [...prev]
-      updated[index].uploading = true
-      return updated
-    })
-
-    try {
-      // Validate file size
-      const maxSize = 10 * 1024 * 1024 // 10MB
-      if (image.file.size > maxSize) {
-        throw new Error(`Image "${image.file.name}" is too large (${(image.file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 10MB.`)
-      }
-
-      console.log(`Uploading image: ${image.file.name}, size: ${(image.file.size / 1024).toFixed(2)}KB`)
-
-      // TEMPORARY: Use mock blob IDs until smart contracts are deployed
-      console.warn('[TEMP] Using mock blob ID - Walrus integration disabled for now')
-      const mockBlobId = `mock_blob_${Date.now()}_${Math.random().toString(36).substring(7)}`
-      
-      // Simulate upload delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      setImages(prev => {
-        const updated = [...prev]
-        updated[index].blobId = mockBlobId
-        updated[index].uploading = false
-        return updated
-      })
-
-      console.log(`Generated mock blob ID: ${mockBlobId}`)
-      return mockBlobId
-    } catch (error) {
-      console.error('Error uploading image:', error)
-      setImages(prev => {
-        const updated = [...prev]
-        updated[index].uploading = false
-        return updated
-      })
-      throw error
-    }
-  }
-
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -159,7 +128,11 @@ export function ItemForm() {
       // Upload images to Walrus decentralized storage
       console.log(`Uploading ${images.length} images to Walrus...`)
 
-      let blobIds: string[]
+      setImages(prev => prev.map(image => ({ ...image, uploading: true })))
+
+      // Declare blobIds outside try block so it's accessible later
+      let blobIds: string[] = []
+      
       try {
         // Upload all images and get blob IDs
         blobIds = await uploadMultipleToWalrus(
@@ -173,9 +146,18 @@ export function ItemForm() {
 
         console.log('✓ All images uploaded to Walrus:', blobIds)
 
+        setImages(prev =>
+          prev.map((image, index) => ({
+            ...image,
+            blobId: blobIds[index] ?? image.blobId,
+            uploading: false,
+          }))
+        )
+
       } catch (uploadError) {
         // If upload fails, show error to user and stop
         console.error('Walrus upload failed:', uploadError)
+        setImages(prev => prev.map(image => ({ ...image, uploading: false })))
         setError(
           uploadError instanceof Error
             ? `Failed to upload images: ${uploadError.message}`
@@ -195,25 +177,50 @@ export function ItemForm() {
       const priceInSui = parseFloat(price)
       const priceInMist = BigInt(Math.floor(priceInSui * 1_000_000_000))
 
+      // Validate blobIds before building transaction
+      console.log('BlobIds type:', typeof blobIds, 'isArray:', Array.isArray(blobIds), 'value:', blobIds)
+      
+      if (!Array.isArray(blobIds) || blobIds.length === 0) {
+        throw new Error('No valid blob IDs from Walrus upload')
+      }
+
       // Build transaction parameters
       const params: CreateItemParams = {
         title: title.trim(),
         description: description.trim(),
         price: priceInMist,
-        currency: "SUI",
         category,
         tags: tagArray,
         walrusImageIds: blobIds,
+        condition,
+        brand: brand.trim(),
+        size: size.trim(),
+        color: color.trim(),
+        material: material.trim(),
       }
 
       // Build transaction
-      console.log('[TEMP] Building transaction with params:', params)
-      const tx = buildCreateItemTransaction(params)
+      console.log('Building transaction to create item on-chain...')
+      console.log('Transaction params:', { ...params, price: params.price.toString() })
+      const transaction = buildCreateItemTransaction(params)
 
-      console.log('[TEMP] Transaction built successfully (empty for now)')
-      console.log('[TEMP] Would execute transaction here once smart contracts are deployed')
+      // Execute transaction with wallet
+      console.log('Signing and executing transaction...')
+      
+      // Use wallet-kit's signAndExecuteTransactionBlock
+      const result = await wallet.signAndExecuteTransactionBlock({
+        transactionBlock: transaction as any,
+      })
 
-      // TEMPORARY: Simulate success without actually executing
+      console.log('✓ Transaction executed:', result.digest)
+
+      // Check if transaction was successful
+      if (result.effects?.status?.status !== 'success') {
+        throw new Error(`Transaction failed: ${result.effects?.status?.error || 'Unknown error'}`)
+      }
+
+      console.log('✓ Item created successfully on blockchain')
+      
       setSuccess(true)
       
       // Reset form
@@ -221,11 +228,13 @@ export function ItemForm() {
       setDescription("")
       setPrice("")
       setCategory(CATEGORIES[0])
+      setCondition(CONDITIONS[0])
+      setBrand("")
+      setSize("")
+      setColor("")
+      setMaterial("")
       setTags("")
       setImages([])
-      
-      // Don't redirect yet - just show success message
-      console.log('[TEMP] Item listing prepared (not actually created on-chain yet)')
 
     } catch (err) {
       console.error('Error creating item:', err)
@@ -333,6 +342,85 @@ export function ItemForm() {
         </div>
       </div>
 
+      {/* Condition and Brand */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="retro-card retro-shadow p-4">
+          <label className="block text-sm font-semibold mb-2">
+            Condition *
+          </label>
+          <select
+            value={condition}
+            onChange={(e) => setCondition(e.target.value)}
+            className="w-full px-3 py-2 border-2 border-black bg-white outline-none focus:border-black/70"
+            required
+          >
+            {CONDITIONS.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="retro-card retro-shadow p-4">
+          <label className="block text-sm font-semibold mb-2">
+            Brand
+          </label>
+          <input
+            type="text"
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+            placeholder="e.g., Levi's"
+            className="w-full px-3 py-2 border-2 border-black bg-white outline-none focus:border-black/70"
+            maxLength={60}
+          />
+        </div>
+      </div>
+
+      {/* Size and Color */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="retro-card retro-shadow p-4">
+          <label className="block text-sm font-semibold mb-2">
+            Size
+          </label>
+          <input
+            type="text"
+            value={size}
+            onChange={(e) => setSize(e.target.value)}
+            placeholder="e.g., M, 32W"
+            className="w-full px-3 py-2 border-2 border-black bg-white outline-none focus:border-black/70"
+            maxLength={30}
+          />
+        </div>
+
+        <div className="retro-card retro-shadow p-4">
+          <label className="block text-sm font-semibold mb-2">
+            Color
+          </label>
+          <input
+            type="text"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            placeholder="e.g., Dark Blue"
+            className="w-full px-3 py-2 border-2 border-black bg-white outline-none focus:border-black/70"
+            maxLength={40}
+          />
+        </div>
+      </div>
+
+      {/* Material */}
+      <div className="retro-card retro-shadow p-4">
+        <label className="block text-sm font-semibold mb-2">
+          Material
+        </label>
+        <input
+          type="text"
+          value={material}
+          onChange={(e) => setMaterial(e.target.value)}
+          placeholder="e.g., 100% Cotton"
+          className="w-full px-3 py-2 border-2 border-black bg-white outline-none focus:border-black/70"
+          maxLength={80}
+        />
+      </div>
+
       {/* Tags */}
       <div className="retro-card retro-shadow p-4">
         <label className="block text-sm font-semibold mb-2">
@@ -370,11 +458,14 @@ export function ItemForm() {
           {images.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {images.map((img, idx) => (
-                <div key={idx} className="relative retro-card border-2 border-black aspect-square">
-                  <img
+                <div key={idx} className="relative retro-card border-2 border-black aspect-square overflow-hidden">
+                  <Image
                     src={img.preview}
                     alt={`Preview ${idx + 1}`}
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="(min-width: 640px) 160px, 40vw"
+                    className="object-cover"
+                    unoptimized
                   />
                   {img.uploading && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs">

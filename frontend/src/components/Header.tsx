@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import { useWallet } from "@suiet/wallet-kit"
 import { LoginModal } from "./LoginModal"
@@ -16,22 +17,22 @@ export function Header() {
   return (
     <header className="w-full bg-transparent">
       <div className="mx-20 px-4 pt-6 flex items-center justify-between">
-        <a href="/" className="text-base font-semibold retro-card retro-shadow px-3 py-2 font-sans">ThriftChain</a>
+        <Link href="/" className="text-base font-semibold retro-card retro-shadow px-3 py-2 font-sans">ThriftChain</Link>
         <div className="flex items-center gap-5">
-          <a href="/listings" className="text-sm opacity-80 hover:opacity-100 flex items-center gap-2">
+          <Link href="/listings" className="text-sm opacity-80 hover:opacity-100 flex items-center gap-2">
             <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
             Browse Items
-          </a>
+          </Link>
           {connected && (
             <>
-              <a href="/list-item" className="text-sm opacity-80 hover:opacity-100 flex items-center gap-2">
+              <Link href="/list-item" className="text-sm opacity-80 hover:opacity-100 flex items-center gap-2">
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                 List Item
-              </a>
-              <a href="/stash" className="text-sm opacity-80 hover:opacity-100 flex items-center gap-2">
+              </Link>
+              <Link href="/stash" className="text-sm opacity-80 hover:opacity-100 flex items-center gap-2">
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M20 7H4v10a2 2 0 002 2h12a2 2 0 002-2V7zM4 7V5a2 2 0 012-2h12a2 2 0 012 2v2" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
                 My Stash
-              </a>
+              </Link>
             </>
           )}
 

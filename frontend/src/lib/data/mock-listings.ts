@@ -72,8 +72,7 @@ function transformToItemCard(row: Record<string, string>, index: number): ItemCa
     return {
       objectId: mockObjectId,
       title: row['Product Name'],
-      price: defaultPriceInMist,
-      currency: 'SUI',
+      priceMist: defaultPriceInMist,
       category: row['Category'],
       walrusImageIds: [row['Main Photo URL']],
       seller: mockSeller,
@@ -96,8 +95,7 @@ function transformToItemCard(row: Record<string, string>, index: number): ItemCa
   return {
     objectId: mockObjectId,
     title: row['Product Name'],
-    price: priceInMist,
-    currency: 'SUI',
+    priceMist: priceInMist,
     category: row['Category'],
     walrusImageIds: [imageUrl], // Using direct URL for now
     seller: mockSeller,

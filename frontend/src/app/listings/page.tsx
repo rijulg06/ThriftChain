@@ -2,18 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { ItemCard, ItemCardSkeleton } from "@/components/ItemCard"
-import { getMockListings } from "@/lib/data/mock-listings"
+import { getAllItems } from "@/lib/sui/queries"
+import { ItemStatus } from "@/lib/types/sui-objects"
 import type { ItemCardProps } from "@/components/ItemCard"
 
 /**
  * Listings Page - Browse all marketplace items
  * 
- * Current: Loads mock data from CSV
- * TODO: Replace with blockchain queries once contracts deployed
- * 
+ * Current: Loads on-chain data from Sui marketplace shared object
+ *
  * Architecture:
- * - Uses getMockListings() which returns Promise<ItemCardProps[]>
- * - Easy swap: change import to use blockchain query with same signature
+ * - Uses getAllItems() to fetch shared table entries
+ * - Maps results to ItemCardProps for UI components
  * - Responsive grid layout
  * - Loading states with skeleton loaders
  * - Empty state handling
@@ -32,14 +32,19 @@ export default function ListingsPage() {
     setError(null)
     
     try {
-      // CURRENT: Load from CSV
-      const data = await getMockListings()
-      
-      // TODO: Replace with blockchain query
-      // import { getAllItems } from '@/lib/sui/queries'
-      // const data = await getAllItems()
-      
-      setItems(data)
+      const response = await getAllItems(undefined, { limit: 100 })
+      const activeItems = response.data.filter(item => item.fields.status === ItemStatus.Active)
+
+      const mapped: ItemCardProps[] = activeItems.map(item => ({
+        objectId: item.objectId,
+        title: item.fields.title,
+        priceMist: BigInt(item.fields.price),
+        category: item.fields.category,
+        walrusImageIds: item.fields.walrus_image_ids || [],
+        seller: item.fields.seller,
+      }))
+
+      setItems(mapped)
     } catch (err) {
       console.error('Error loading items:', err)
       setError('Failed to load listings. Please try again.')
@@ -108,7 +113,7 @@ export default function ListingsPage() {
             </p>
             <a
               href="/list-item"
-              className="inline-block retro-btn retro-shadow px-8 py-3 bg-yellow-300 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+              className="inline-block retro-btn retro-shadow px-8 py-3 hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
             >
               List Your First Item
             </a>

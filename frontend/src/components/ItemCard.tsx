@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { getWalrusBlobUrl } from "@/lib/walrus/upload"
@@ -7,8 +8,7 @@ import { getWalrusBlobUrl } from "@/lib/walrus/upload"
 export interface ItemCardProps {
   objectId: string
   title: string
-  price: bigint
-  currency: string
+  priceMist: bigint
   category: string
   walrusImageIds: string[]
   seller: string
@@ -27,8 +27,7 @@ export interface ItemCardProps {
 export function ItemCard({
   objectId,
   title,
-  price,
-  currency,
+  priceMist,
   category,
   walrusImageIds,
   seller,
@@ -37,7 +36,7 @@ export function ItemCard({
   const [imageError, setImageError] = useState(false)
 
   // Format price from MIST to SUI (1 SUI = 10^9 MIST)
-  const priceInSui = Number(price) / 1_000_000_000
+  const priceInSui = Number(priceMist) / 1_000_000_000
   const formattedPrice = priceInSui.toFixed(2)
 
   // Shorten wallet address: 0x1234...5678
@@ -80,11 +79,14 @@ export function ItemCard({
       {/* Image Section */}
       <div className="relative aspect-square bg-gray-100 border-b-2 border-black">
         {imageUrl && !imageError ? (
-          <img
+          <Image
             src={imageUrl}
             alt={title}
+            fill
+            sizes="(min-width: 1024px) 300px, 50vw"
             onError={() => setImageError(true)}
-            className="w-full h-full object-cover"
+            className="object-cover"
+            unoptimized
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -118,7 +120,7 @@ export function ItemCard({
         {/* Price */}
         <div className="flex items-baseline gap-1">
           <span className="text-2xl font-black">{formattedPrice}</span>
-          <span className="text-sm font-bold opacity-60">{currency}</span>
+          <span className="text-sm font-bold opacity-60">SUI</span>
         </div>
 
         {/* Seller */}
