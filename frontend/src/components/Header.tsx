@@ -23,10 +23,16 @@ export function Header() {
             Browse Items
           </a>
           {connected && (
-            <a href="/stash" className="text-sm opacity-80 hover:opacity-100 flex items-center gap-2">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M20 7H4v10a2 2 0 002 2h12a2 2 0 002-2V7zM4 7V5a2 2 0 012-2h12a2 2 0 012 2v2" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
-              My Stash
-            </a>
+            <>
+              <a href="/list-item" className="text-sm opacity-80 hover:opacity-100 flex items-center gap-2">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                List Item
+              </a>
+              <a href="/stash" className="text-sm opacity-80 hover:opacity-100 flex items-center gap-2">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M20 7H4v10a2 2 0 002 2h12a2 2 0 002-2V7zM4 7V5a2 2 0 012-2h12a2 2 0 012 2v2" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
+                My Stash
+              </a>
+            </>
           )}
 
           {connected ? (

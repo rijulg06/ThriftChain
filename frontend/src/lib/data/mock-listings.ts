@@ -53,9 +53,33 @@ function parseCSV(csvText: string): Record<string, string>[] {
 
 // Transform CSV row to ItemCardProps format
 function transformToItemCard(row: Record<string, string>, index: number): ItemCardProps {
-  // Parse price: "$10.15" -> 10.15 -> 10150000000 MIST
-  const priceStr = row['Price'].replace('$', '')
+  // Parse price - handle various formats
+  const priceStr = row['Price'].replace('$', '').replace(',', '').trim()
   const priceInSui = parseFloat(priceStr)
+  
+  // Handle invalid prices
+  if (isNaN(priceInSui) || priceInSui <= 0) {
+    console.warn(`Invalid price for item: ${row['Product Name']}, using default 10 SUI`)
+    const defaultPriceInMist = BigInt(10_000_000_000) // 10 SUI default
+    
+    // Generate CONSISTENT mock data (same ID for same product every time)
+    const productHash = row['Product Name'].split('').reduce((acc, char) => {
+      return ((acc << 5) - acc) + char.charCodeAt(0)
+    }, 0)
+    const mockObjectId = `mock_obj_${index}_${Math.abs(productHash)}`
+    const mockSeller = `0x${Math.abs(productHash).toString(16).slice(0, 8)}...${Math.abs(productHash).toString(16).slice(-4)}`
+    
+    return {
+      objectId: mockObjectId,
+      title: row['Product Name'],
+      price: defaultPriceInMist,
+      currency: 'SUI',
+      category: row['Category'],
+      walrusImageIds: [row['Main Photo URL']],
+      seller: mockSeller,
+    }
+  }
+  
   const priceInMist = BigInt(Math.floor(priceInSui * 1_000_000_000))
   
   // Generate CONSISTENT mock data (same ID for same product every time)

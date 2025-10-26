@@ -5,6 +5,7 @@ import { useWallet } from "@suiet/wallet-kit"
 import { buildCreateItemTransaction } from "@/lib/sui/transactions"
 import { suiClient } from "@/lib/sui/client"
 import { Button } from "./ui/button"
+import { LoginModal } from "./LoginModal"
 import type { CreateItemParams } from "@/lib/types/sui-objects"
 
 interface UploadedImage {
@@ -42,6 +43,7 @@ export function ItemForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [loginModalOpen, setLoginModalOpen] = useState(false)
 
   // Handle image selection
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,13 +214,16 @@ export function ItemForm() {
 
   if (!connected) {
     return (
-      <div className="retro-card retro-shadow p-6 text-center">
-        <h2 className="text-xl mb-3">Wallet Not Connected</h2>
-        <p className="opacity-80 mb-4">Please connect your wallet to list an item</p>
-        <Button onClick={() => window.location.href = '/'}>
-          Go to Home
-        </Button>
-      </div>
+      <>
+        <div className="retro-card retro-shadow p-6 text-center">
+          <h2 className="text-xl mb-3">Wallet Not Connected</h2>
+          <p className="opacity-80 mb-4">Please connect your wallet to list an item</p>
+          <Button onClick={() => setLoginModalOpen(true)}>
+            Connect Wallet
+          </Button>
+        </div>
+        <LoginModal open={loginModalOpen} onOpenChange={setLoginModalOpen} />
+      </>
     )
   }
 

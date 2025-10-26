@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConnectButton, useWallet } from '@suiet/wallet-kit';
 import { toast } from 'sonner';
+import { LoginModal } from '@/components/LoginModal';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,6 +76,9 @@ export default function StashPage() {
     zip: '',
     country: 'USA',
   });
+
+  // Login modal state
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -287,14 +291,20 @@ export default function StashPage() {
 
   if (!wallet.connected) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="retro-card p-8 text-center max-w-md">
-          <h1 className="text-3xl font-bold mb-4">My Stash 📦</h1>
-          <p className="mb-6 opacity-80">
-            Connect your wallet to view your offers and transactions
-          </p>
-          <ConnectButton>Connect Wallet</ConnectButton>
+      <div className="min-h-screen">
+        <div className="mx-auto max-w-3xl px-6 pt-24 pb-16">
+          <div className="retro-card retro-shadow p-6 text-center">
+            <h2 className="text-xl mb-3">Wallet Not Connected</h2>
+            <p className="opacity-80 mb-4">Please connect your wallet to view your stash</p>
+            <button
+              onClick={() => setLoginModalOpen(true)}
+              className="retro-btn px-6 py-3"
+            >
+              Connect Wallet
+            </button>
+          </div>
         </div>
+        <LoginModal open={loginModalOpen} onOpenChange={setLoginModalOpen} />
       </div>
     );
   }
@@ -315,10 +325,20 @@ export default function StashPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Header Card - Similar to listings page */}
         <div className="retro-card retro-shadow p-6 mb-8">
-          <h1 className="text-4xl font-black mb-2">My Stash</h1>
-          <p className="text-lg opacity-80">
-            Manage your offers and transactions
-          </p>
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <h1 className="text-4xl font-black mb-2">My Stash</h1>
+              <p className="text-lg opacity-80">
+                Manage your offers and transactions
+              </p>
+            </div>
+            <button
+              onClick={() => router.push('/list-item')}
+              className="retro-btn px-6 py-3 bg-black text-white whitespace-nowrap cursor-pointer"
+            >
+              📝 List Item
+            </button>
+          </div>
           
           {/* Stats */}
           {!loading && (
@@ -808,7 +828,7 @@ export default function StashPage() {
                 type="number"
                 value={counterAmount}
                 onChange={(e) => setCounterAmount(e.target.value)}
-                className="w-full px-4 py-3 bg-black/40 border-4 border-white font-mono text-lg focus:outline-none"
+                className="w-full px-4 py-3 bg-neutral-200 border-4 border-white font-mono text-lg focus:outline-none"
                 placeholder="0.00"
                 step="0.01"
                 required
@@ -822,7 +842,7 @@ export default function StashPage() {
               <textarea
                 value={counterMessage}
                 onChange={(e) => setCounterMessage(e.target.value)}
-                className="w-full px-4 py-3 bg-black/40 border-4 border-white resize-none focus:outline-none"
+                className="w-full px-4 py-3 bg-neutral-200 border-4 border-white resize-none focus:outline-none"
                 rows={3}
                 placeholder="Explain your counter offer..."
               />
@@ -836,7 +856,7 @@ export default function StashPage() {
                   setCounterAmount('');
                   setCounterMessage('');
                 }}
-                className="retro-btn flex-1 bg-black hover:bg-gray-900 px-6 py-3 text-white"
+                className="retro-btn flex-1 bg-black hover:bg-neutral-900 px-6 py-3 text-white"
               >
                 Cancel
               </button>
@@ -866,7 +886,7 @@ export default function StashPage() {
                 type="text"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
-                className="w-full px-4 py-3 bg-black/40 border-4 border-white font-mono focus:outline-none"
+                className="w-full px-4 py-3 bg-neutral-200 border-4 border-white font-mono focus:outline-none"
                 placeholder="1Z999AA10123456784"
                 required
               />
@@ -879,7 +899,7 @@ export default function StashPage() {
               <select
                 value={carrier}
                 onChange={(e) => setCarrier(e.target.value)}
-                className="w-full px-4 py-3 bg-black/40 border-4 border-white focus:outline-none"
+                className="w-full px-4 py-3 bg-neutral-200 border-4 border-white focus:outline-none"
               >
                 <option value="USPS">USPS</option>
                 <option value="UPS">UPS</option>
@@ -896,7 +916,7 @@ export default function StashPage() {
                   setShippingTxId(null);
                   setTrackingNumber('');
                 }}
-                className="retro-btn flex-1 bg-black hover:bg-gray-900 px-6 py-3 text-white"
+                className="retro-btn flex-1 bg-black hover:bg-neutral-900 px-6 py-3 text-white"
               >
                 Cancel
               </button>
@@ -926,7 +946,7 @@ export default function StashPage() {
                 type="text"
                 value={shippingAddress.address}
                 onChange={(e) => setShippingAddress({...shippingAddress, address: e.target.value})}
-                className="w-full px-4 py-3 bg-black/40 border-4 border-white focus:outline-none"
+                className="w-full px-4 py-3 bg-neutral-200 border-4 border-white focus:outline-none"
                 placeholder="123 Main Street"
                 required
               />
@@ -940,7 +960,7 @@ export default function StashPage() {
                 type="text"
                 value={shippingAddress.city}
                 onChange={(e) => setShippingAddress({...shippingAddress, city: e.target.value})}
-                className="w-full px-4 py-3 bg-black/40 border-4 border-white focus:outline-none"
+                className="w-full px-4 py-3 bg-neutral-200 border-4 border-white focus:outline-none"
                 placeholder="San Francisco"
                 required
               />
@@ -955,7 +975,7 @@ export default function StashPage() {
                   type="text"
                   value={shippingAddress.state}
                   onChange={(e) => setShippingAddress({...shippingAddress, state: e.target.value})}
-                  className="w-full px-4 py-3 bg-black/40 border-4 border-white focus:outline-none"
+                  className="w-full px-4 py-3 bg-neutral-200 border-4 border-white focus:outline-none"
                   placeholder="CA"
                   required
                 />
@@ -968,7 +988,7 @@ export default function StashPage() {
                   type="text"
                   value={shippingAddress.zip}
                   onChange={(e) => setShippingAddress({...shippingAddress, zip: e.target.value})}
-                  className="w-full px-4 py-3 bg-black/40 border-4 border-white focus:outline-none"
+                  className="w-full px-4 py-3 bg-neutral-200 border-4 border-white focus:outline-none"
                   placeholder="94102"
                   required
                 />
@@ -983,7 +1003,7 @@ export default function StashPage() {
                 type="text"
                 value={shippingAddress.country}
                 onChange={(e) => setShippingAddress({...shippingAddress, country: e.target.value})}
-                className="w-full px-4 py-3 bg-black/40 border-4 border-white focus:outline-none"
+                className="w-full px-4 py-3 bg-neutral-200 border-4 border-white focus:outline-none"
                 placeholder="United States"
                 required
               />
@@ -1002,7 +1022,7 @@ export default function StashPage() {
                     country: ''
                   });
                 }}
-                className="retro-btn flex-1 bg-black hover:bg-gray-900 px-6 py-3 text-white"
+                className="retro-btn flex-1 bg-black hover:bg-neutral-900 px-6 py-3 text-white"
               >
                 Cancel
               </button>
