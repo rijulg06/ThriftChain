@@ -16,5 +16,8 @@
   "repository": {
     "type": "git",
     "url": ""
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
   }
 }

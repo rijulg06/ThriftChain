@@ -104,7 +104,7 @@ const supabase = createClient(
 
 interface SearchRequest {
   query: string; // User's search query (e.g., "vintage leather jacket")
-  similarityThreshold?: number; // Minimum similarity score (0-1), default 0.7
+  similarityThreshold?: number; // Minimum similarity score (0-1), default 0.5
   maxResults?: number; // Maximum results to return, default 20
   useCombined?: boolean; // Use combined embedding (true) or title only (false)
 }
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     const body: SearchRequest = await request.json();
     const {
       query,
-      similarityThreshold = 0.7, // Default: 70% similarity
+      similarityThreshold = 0.5, // Default: 50% similarity (lowered for better recall)
       maxResults = 20, // Default: top 20 results
       useCombined = true, // Default: use multimodal embeddings
     } = body;
