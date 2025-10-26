@@ -3,9 +3,9 @@
 # TC-LIST-005: Delist an item before any offers
 # Expected Result: Successfully removed, no escrow interaction
 
-# Load testnet IDs
+# Load devnet IDs
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../testnet_ids.txt"
+source "$SCRIPT_DIR/../devnet_ids.txt"
 
 echo "🧪 TC-LIST-005: Delist an item before any offers"
 echo "Expected Result: Successfully removed, no escrow interaction"
