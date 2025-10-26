@@ -179,7 +179,7 @@ export default function ListingsPage() {
             <h2 className="text-xl font-bold mb-2">Oops!</h2>
             <p className="opacity-80 mb-4">{error}</p>
             <button
-              onClick={loadItems}
+              onClick={() => loadItems(searchQuery)}
               className="retro-btn retro-shadow px-6 py-2 bg-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
             >
               Try Again

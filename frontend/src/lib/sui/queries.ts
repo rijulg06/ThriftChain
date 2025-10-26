@@ -15,7 +15,6 @@ import type { SuiObjectResponse } from '@mysten/sui/client'
 import { suiClient } from './client'
 import type {
   ThriftItemObject,
-  ThriftItemWithImages,
   OfferObject,
   EscrowObject,
   PaginatedObjectsResponse,
@@ -648,14 +647,6 @@ function applyItemFilters(item: ThriftItemObject, filters?: ItemQueryFilters): b
     }
   }
 
-  // Filter by tags (item must have ALL specified tags)
-  if (filters.tags && filters.tags.length > 0) {
-    const itemTags = new Set(item.fields.tags)
-    const hasAllTags = filters.tags.every(tag => itemTags.has(tag))
-    if (!hasAllTags) {
-      return false
-    }
-  }
 
   return true
 }

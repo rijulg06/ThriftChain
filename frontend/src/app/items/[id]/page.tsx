@@ -278,15 +278,6 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
                   <span className="ml-2 opacity-80">{fields.material || 'N/A'}</span>
                 </div>
               </div>
-              {fields.tags && fields.tags.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {fields.tags.map((tag: string) => (
-                    <span key={tag} className="text-xs uppercase font-bold bg-black text-white px-2 py-1">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Action Buttons */}
