@@ -148,24 +148,31 @@ async function fetchTableEntries<T>(
   // Each dynamic field has the actual item data in its value
   const objects = await Promise.all(
     dynamicFields.data.map(async (field) => {
-      console.log(`[fetchTableEntries] Fetching dynamic field: ${field.objectId}`)
+      try {
+        console.log(`[fetchTableEntries] Fetching dynamic field: ${field.objectId}`)
 
-      // Get the dynamic field object which contains the actual table entry
-      const fieldObj = await suiClient.getDynamicFieldObject({
-        parentId: tableId,
-        name: {
-          type: field.name.type,
-          value: field.name.value,
-        },
-      })
+        // Get the dynamic field object which contains the actual table entry
+        const fieldObj = await suiClient.getDynamicFieldObject({
+          parentId: tableId,
+          name: {
+            type: field.name.type,
+            value: field.name.value,
+          },
+        })
 
-      return fieldObj
+        return fieldObj
+      } catch (error) {
+        console.error(`[fetchTableEntries] Failed to fetch dynamic field ${field.objectId}:`, error)
+        // Return null for failed fetches instead of failing the entire operation
+        return null
+      }
     })
   )
 
   const parsed = objects
+    .filter(obj => obj !== null) // Filter out failed fetches
     .map(obj => {
-      const result = parseFn(obj)
+      const result = parseFn(obj!)
       if (!result) {
         console.warn('[fetchTableEntries] Failed to parse object:', obj)
       }
@@ -271,27 +278,42 @@ export async function getItemById(objectId: string): Promise<ThriftItemObject | 
 
       if (response.data) {
         const item = parseThriftItemObject(response)
-        console.log(`[getItemById] Found item:`, item?.fields.title)
-        return item
+        if (item) {
+          console.log(`[getItemById] ✅ Found item via direct lookup:`, item.fields.title)
+          return item
+        }
       }
     } catch (err) {
-      console.warn(`[getItemById] Direct lookup failed, trying full table scan:`, err)
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      console.warn(`[getItemById] Direct lookup failed for ${objectId}: ${errorMsg}`)
+
+      // If the error is about object not found, no need to do table scan
+      if (errorMsg.includes('Could not find the referenced object') ||
+          errorMsg.includes('not found')) {
+        console.log(`[getItemById] Object doesn't exist on chain, skipping table scan`)
+        return null
+      }
     }
 
-    // Fallback: If direct lookup fails, scan all items
+    // Fallback: If direct lookup fails for other reasons, scan all items
     // This is less efficient but handles edge cases
-    const allItems = await getAllItems()
-    const item = allItems.data.find(item => item.objectId === objectId)
+    console.log(`[getItemById] Attempting table scan fallback...`)
+    try {
+      const allItems = await getAllItems()
+      const item = allItems.data.find(item => item.objectId === objectId)
 
-    if (item) {
-      console.log(`[getItemById] Found item via table scan:`, item.fields.title)
-      return item
+      if (item) {
+        console.log(`[getItemById] ✅ Found item via table scan:`, item.fields.title)
+        return item
+      }
+    } catch (scanError) {
+      console.error(`[getItemById] Table scan also failed:`, scanError)
     }
 
-    console.warn(`[getItemById] Item not found: ${objectId}`)
+    console.warn(`[getItemById] ❌ Item not found: ${objectId}`)
     return null
   } catch (error) {
-    console.error(`[getItemById] Error fetching item ${objectId}:`, error)
+    console.error(`[getItemById] ❌ Error fetching item ${objectId}:`, error)
     return null
   }
 }

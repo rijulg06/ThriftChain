@@ -529,6 +529,40 @@ export function extractCreatedObjectIds(result: SignAndExecuteResult): string[] 
 }
 
 /**
+ * Extract item ID from ItemCreated event
+ *
+ * Items stored in Tables don't appear in objectChanges, but the ItemCreated
+ * event contains the item_id that was used as the table key.
+ *
+ * @param result - Transaction result from wallet.signAndExecuteTransaction
+ * @returns Item ID from the event, or null if not found
+ */
+export function extractItemIdFromEvent(result: SignAndExecuteResult): string | null {
+  const events = result.events ?? []
+
+  // Look for ItemCreated event
+  const itemCreatedEvent = events.find(event =>
+    event.type.includes('::thriftchain::ItemCreated')
+  )
+
+  if (!itemCreatedEvent || !itemCreatedEvent.parsedJson) {
+    console.warn('[extractItemIdFromEvent] No ItemCreated event found')
+    return null
+  }
+
+  // Extract item_id from the event
+  const itemId = (itemCreatedEvent.parsedJson as any).item_id
+
+  if (!itemId) {
+    console.error('[extractItemIdFromEvent] Event found but no item_id field:', itemCreatedEvent.parsedJson)
+    return null
+  }
+
+  console.log('[extractItemIdFromEvent] ✅ Extracted item ID from event:', itemId)
+  return itemId
+}
+
+/**
  * Wait for transaction to be indexed (useful before querying)
  *
  * @param txDigest - Transaction digest to wait for

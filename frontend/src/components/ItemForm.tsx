@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { useState, useRef } from "react"
 import { useWallet } from "@suiet/wallet-kit"
-import { buildCreateItemTransaction, extractCreatedObjectIds } from "@/lib/sui/transactions"
+import { buildCreateItemTransaction, extractItemIdFromEvent } from "@/lib/sui/transactions"
 import { suiClient } from "@/lib/sui/client"
 import { Button } from "./ui/button"
 import { LoginModal } from "./LoginModal"
@@ -216,6 +216,7 @@ export function ItemForm() {
         options: {
           showEffects: true,
           showObjectChanges: true,
+          showEvents: true, // IMPORTANT: Need this to get ItemCreated event
         },
       })
 
@@ -229,15 +230,15 @@ export function ItemForm() {
 
       console.log('✓ Item created successfully on blockchain')
 
-      // Step 4: Extract the created object ID from transaction result
-      const createdObjectIds = extractCreatedObjectIds(txResult);
-      if (createdObjectIds.length === 0) {
-        console.error('No object ID returned from blockchain transaction:', txResult);
-        throw new Error('No object ID returned from blockchain transaction');
+      // Step 4: Extract the item ID from the ItemCreated event
+      // Items in Tables don't appear in objectChanges, but the event has the ID
+      const suiObjectId = extractItemIdFromEvent(txResult);
+      if (!suiObjectId) {
+        console.error('No item ID found in ItemCreated event:', txResult);
+        throw new Error('Failed to extract item ID from transaction event');
       }
 
-      const suiObjectId = createdObjectIds[0];
-      console.log('✓ Item object ID from blockchain:', suiObjectId);
+      console.log('✓ Item object ID from event:', suiObjectId);
 
       // Step 5: Generate AI embeddings and index for search
       console.log('\n' + '='.repeat(60));
@@ -285,6 +286,8 @@ export function ItemForm() {
           const errorData = await indexResponse.json();
           console.error('🔴 AI indexing FAILED:', errorData);
           console.error('Error details:', JSON.stringify(errorData, null, 2));
+          console.warn('⚠️  Item created on blockchain but NOT AI-searchable yet');
+          console.warn('⚠️  You can still browse it directly at /listings (without search)');
           // Not fatal - item is on blockchain, just not AI-searchable yet
         } else {
           const indexResult = await indexResponse.json();
@@ -298,13 +301,16 @@ export function ItemForm() {
         if (indexError instanceof Error && indexError.stack) {
           console.error('Stack trace:', indexError.stack);
         }
+        console.warn('⚠️  Item created on blockchain but NOT AI-searchable yet');
         // Continue - item is still on blockchain
       }
 
       console.log('='.repeat(60) + '\n');
 
-      console.log('✓ Item listing complete! Blockchain + AI Search enabled')
-      
+      console.log('✅ Item listing complete! Item is on blockchain.')
+      console.log('📍 Item ID:', suiObjectId)
+      console.log('🔗 View at: http://localhost:3000/listings')
+
       setSuccess(true)
       
       // Reset form
