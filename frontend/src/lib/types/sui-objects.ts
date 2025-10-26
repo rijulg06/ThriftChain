@@ -225,6 +225,13 @@ export interface CounterOfferParams {
 }
 
 /**
+ * Parameters for accepting a counter offer (buyer side)
+ */
+export interface AcceptCounterOfferParams {
+  offerId: string                     // Sui object ID of Offer
+}
+
+/**
  * Parameters for confirming delivery
  */
 export interface ConfirmDeliveryParams {

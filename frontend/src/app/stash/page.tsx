@@ -27,7 +27,7 @@ import {
 import { suiClient } from '@/lib/sui/client';
 import type { ThriftItemObject, OfferObject, EscrowObject } from '@/lib/types/sui-objects';
 import { mistToSui, suiToMist, OfferStatus, ItemStatus, EscrowStatus } from '@/lib/types/sui-objects';
-import { buildAcceptOfferTransaction, buildRejectOfferTransaction, buildCancelOfferTransaction, buildCounterOfferTransaction } from '@/lib/sui/transactions';
+import { buildAcceptOfferTransaction, buildRejectOfferTransaction, buildCancelOfferTransaction, buildCounterOfferTransaction, buildAcceptCounterOfferTransaction } from '@/lib/sui/transactions';
 
 // UI-friendly data structures (adapted from blockchain objects)
 interface OfferWithItem extends OfferObject {
@@ -348,20 +348,46 @@ export default function StashPage() {
   };
 
   const handleAcceptCounter = async (offerId: string) => {
+    if (!wallet.account?.address) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
     setAlertConfig({
       title: 'Accept Counter Offer',
-      description: 'Accept this counter offer? This will create an escrow.',
-      actionLabel: 'Accept',
+      description: 'Accept this counter offer? The item will be reserved for you.',
+      actionLabel: 'Accept Counter',
       action: async () => {
         try {
-          // TODO: Implement with buildAcceptCounterOfferTransaction()
-          toast.info('Accept counter offer functionality coming soon!');
-          console.log('Accept counter offer:', offerId);
-          // await buildAcceptCounterOfferTransaction(...)
-          // loadData();
+          // Build transaction
+          const tx = buildAcceptCounterOfferTransaction({
+            offerId,
+          });
+
+          // Sign and execute transaction
+          const result = await wallet.signAndExecuteTransaction({
+            transaction: tx,
+          });
+
+          console.log('Accept counter offer result:', result);
+
+          // Wait for transaction to get full effects
+          const txResult = await suiClient.waitForTransaction({
+            digest: result.digest,
+            options: {
+              showEffects: true,
+            },
+          });
+
+          if (txResult.effects?.status?.status === 'success') {
+            toast.success('Counter offer accepted! Waiting for seller to ship.');
+            await loadData(); // Refresh data
+          } else {
+            throw new Error('Transaction failed');
+          }
         } catch (error) {
           console.error('Error accepting counter:', error);
-          toast.error('Failed to accept counter offer');
+          toast.error(error instanceof Error ? error.message : 'Failed to accept counter offer');
         }
       },
     });

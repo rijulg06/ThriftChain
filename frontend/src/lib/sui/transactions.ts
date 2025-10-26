@@ -19,6 +19,7 @@ import type {
   CreateOfferParams,
   AcceptOfferParams,
   CounterOfferParams,
+  AcceptCounterOfferParams,
   ConfirmDeliveryParams,
 } from '../types/sui-objects'
 
@@ -369,6 +370,38 @@ export function buildCounterOfferTransaction(params: CounterOfferParams): Transa
       tx.pure.id(params.offerId),
       tx.pure.u64(params.counterAmount),
       tx.pure.string(params.counterMessage),
+      tx.object(CLOCK_ID),
+    ],
+  })
+
+  tx.setGasBudget(DEFAULT_GAS_BUDGET)
+
+  return tx
+}
+
+/**
+ * Build transaction to accept a counter offer (buyer only)
+ *
+ * Flow:
+ * 1. Seller counters buyer's offer with different amount
+ * 2. Buyer accepts the counter offer
+ * 3. Offer is marked as accepted and transaction proceeds
+ *
+ * @param params - Accept counter offer parameters
+ * @returns Transaction ready to be signed
+ */
+export function buildAcceptCounterOfferTransaction(params: AcceptCounterOfferParams): Transaction {
+  if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
+    throw new Error('Package or Marketplace ID not configured')
+  }
+
+  const tx = new Transaction()
+
+  tx.moveCall({
+    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::accept_counter_offer_by_id`,
+    arguments: [
+      tx.object(MARKETPLACE_ID),
+      tx.pure.id(params.offerId),
       tx.object(CLOCK_ID),
     ],
   })
