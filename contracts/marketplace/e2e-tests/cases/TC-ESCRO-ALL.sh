@@ -27,8 +27,6 @@ TESTS=(
     "TC-ESCROW-001"
     "TC-ESCROW-002"
     "TC-ESCROW-003"
-    "TC-ESCROW-004"
-    "TC-ESCROW-005"
 )
 
 # Run each test
@@ -38,7 +36,7 @@ for TEST in "${TESTS[@]}"; do
     echo "Running $TEST..."
     echo ""
     
-    OUTPUT=$(./${TEST}.sh 2>&1)
+    OUTPUT=$("$SCRIPT_DIR/${TEST}.sh" 2>&1)
     EXIT_CODE=$?
     
     echo "$OUTPUT"

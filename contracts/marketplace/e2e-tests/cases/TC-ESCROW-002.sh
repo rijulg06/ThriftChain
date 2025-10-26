@@ -10,8 +10,8 @@ echo "🧪 TC-ESCROW-002: Buyer disputes item"
 echo "Expected Result: Contract enters dispute state; funds remain locked"
 echo ""
 
-SELLER="upbeat-spodumene"
-BUYER="nostalgic-ruby"
+SELLER="$OWNER_ADDRESS"
+BUYER="upbeat-spodumene"
 
 echo "📋 Test Setup:"
 echo "  Seller: $SELLER"
@@ -60,49 +60,86 @@ echo ""
 echo "💰 Step 2: Making offer as BUYER..."
 sui client switch --address $BUYER > /dev/null 2>&1
 
-OFFER_RESULT=$(sui client call \
-    --package "$MARKETPLACE_PACKAGE_ID" \
-    --module "$MODULE_NAME" \
-    --function "create_offer_by_id" \
-    --args "$MARKETPLACE_OBJECT_ID" \
-           "$ITEM_ID" \
-           "8000000000" \
-           "Test offer for dispute" \
-           "24" \
-           "$CLOCK_OBJECT_ID" \
-    --gas-budget 100000000 \
-    2>&1)
+# Split a coin to get exactly 8 SUI for the offer
+OFFER_AMOUNT_MIST="8000000000"
+echo "  Splitting coin to get exactly $OFFER_AMOUNT_MIST MIST for payment..."
 
-if echo "$OFFER_RESULT" | grep -q "Status: Success"; then
-    OFFER_ID=$(echo "$OFFER_RESULT" | grep "offer_id" | grep -o '0x[a-f0-9]\{64\}' | head -1)
-    echo "✅ Offer created: $OFFER_ID"
-else
-    echo "❌ Offer creation failed"
+# Get a gas coin with enough balance (need > 8 SUI)
+SOURCE_COIN=$(sui client gas --json 2>/dev/null | jq -r '.[] | select(.mistBalance > 8000000000) | .gasCoinId' | head -1)
+
+if [ -z "$SOURCE_COIN" ]; then
+    echo "❌ No coin with sufficient balance found"
     sui client switch --address "$ORIGINAL" > /dev/null 2>&1
     exit 1
 fi
 
-# Step 3: Accept offer as seller (creates escrow)
+# Split the coin to get exactly 8 SUI
+SPLIT_RESULT=$(sui client split-coin --coin-id "$SOURCE_COIN" --amounts "$OFFER_AMOUNT_MIST" --gas-budget 10000000 --json 2>&1)
+BUYER_GAS=$(echo "$SPLIT_RESULT" | jq -r '.objectChanges[] | select(.objectType == "0x2::coin::Coin<0x2::sui::SUI>") | select(.type == "created") | .objectId' | head -1)
+
+if [ -z "$BUYER_GAS" ]; then
+    echo "❌ Failed to split coin"
+    sui client switch --address "$ORIGINAL" > /dev/null 2>&1
+    exit 1
+fi
+
+echo "  Using payment coin: $BUYER_GAS (exactly 8 SUI)"
+
+TEMP_FILE_OFFER=$(mktemp)
+sui client call \
+    --package "$MARKETPLACE_PACKAGE_ID" \
+    --module "$MODULE_NAME" \
+    --function "create_offer_by_id" \
+    --args "$MARKETPLACE_OBJECT_ID" "$ITEM_ID" "8000000000" "Test offer for dispute" "24" "$BUYER_GAS" "$CLOCK_OBJECT_ID" \
+    --gas-budget 100000000 \
+    --json > "$TEMP_FILE_OFFER" 2>&1
+
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ]; then
+    OFFER_ID=$(grep -o '"offer_id"[[:space:]]*:[[:space:]]*"0x[^"]*"' "$TEMP_FILE_OFFER" | head -1 | sed 's/.*"0x/0x/' | sed 's/".*//')
+    ESCROW_ID=$(grep -o '"escrow_id"[[:space:]]*:[[:space:]]*"0x[^"]*"' "$TEMP_FILE_OFFER" | head -1 | sed 's/.*"0x/0x/' | sed 's/".*//')
+    echo "✅ Offer created: $OFFER_ID"
+    echo "✅ Escrow created: $ESCROW_ID (payment locked)"
+    rm -f "$TEMP_FILE_OFFER"
+    
+    if [ -z "$ESCROW_ID" ]; then
+        echo "❌ Failed to extract Escrow ID"
+        sui client switch --address "$ORIGINAL" > /dev/null 2>&1
+        exit 1
+    fi
+else
+    echo "❌ Offer creation failed"
+    echo "Error output:"
+    cat "$TEMP_FILE_OFFER"
+    rm -f "$TEMP_FILE_OFFER"
+    sui client switch --address "$ORIGINAL" > /dev/null 2>&1
+    exit 1
+fi
+
+# Step 3: Accept offer as seller (marks acceptance, escrow already exists)
 echo ""
-echo "✅ Step 3: Accepting offer as SELLER (creates escrow)..."
+echo "✅ Step 3: Accepting offer as SELLER (marks acceptance)..."
 sui client switch --address $SELLER > /dev/null 2>&1
 
-ACCEPT_RESULT=$(sui client call \
+TEMP_FILE_ACCEPT=$(mktemp)
+sui client call \
     --package "$MARKETPLACE_PACKAGE_ID" \
     --module "$MODULE_NAME" \
     --function "accept_offer_by_id" \
-    --args "$MARKETPLACE_OBJECT_ID" \
-           "$OFFER_ID" \
-           "$ITEM_ID" \
-           "$CLOCK_OBJECT_ID" \
+    --args "$MARKETPLACE_OBJECT_ID" "$OFFER_ID" "$ITEM_ID" "$CLOCK_OBJECT_ID" \
     --gas-budget 100000000 \
-    2>&1)
+    --json > "$TEMP_FILE_ACCEPT" 2>&1
 
-if echo "$ACCEPT_RESULT" | grep -q "Status: Success"; then
-    ESCROW_ID=$(echo "$ACCEPT_RESULT" | grep "escrow_id" | grep -o '0x[a-f0-9]\{64\}' | head -1)
-    echo "✅ Escrow created: $ESCROW_ID"
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "✅ Seller accepted offer"
+    rm -f "$TEMP_FILE_ACCEPT"
 else
     echo "❌ Offer acceptance failed"
+    cat "$TEMP_FILE_ACCEPT"
+    rm -f "$TEMP_FILE_ACCEPT"
     sui client switch --address "$ORIGINAL" > /dev/null 2>&1
     exit 1
 fi
@@ -147,4 +184,6 @@ sui client switch --address "$ORIGINAL" > /dev/null 2>&1
 
 echo ""
 echo "🏁 TC-ESCROW-002 completed!"
+
+
 
