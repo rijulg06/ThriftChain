@@ -31,7 +31,6 @@
  * 3. Add NEXT_PUBLIC_WALRUS_PUBLISHER_URL to .env.local
  */
 const PUBLISHER_URL =
-  process.env.NEXT_PUBLIC_WALRUS_PUBLISHER_URL ||
   'https://walrus.testnet.pops.one:9001'
 
 /**
@@ -39,7 +38,6 @@ const PUBLISHER_URL =
  * This is a public testnet service that retrieves blobs from Walrus storage
  */
 const AGGREGATOR_URL =
-  process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR_URL ||
   'https://walrusagg.testnet.pops.space'
 
 /**
