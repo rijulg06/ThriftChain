@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { ItemCard, ItemCardSkeleton } from "@/components/ItemCard"
 import { getAllItems, getItemsByIds } from "@/lib/sui/queries"
@@ -17,7 +17,7 @@ import type { ItemCardProps } from "@/components/ItemCard"
  * - Loading states with skeleton loaders
  * - Empty state handling
  */
-export default function ListingsPage() {
+function ListingsContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [items, setItems] = useState<ItemCardProps[]>([])
@@ -245,5 +245,20 @@ export default function ListingsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function ListingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-pulse text-4xl mb-4">📦</div>
+          <p>Loading listings...</p>
+        </div>
+      </div>
+    }>
+      <ListingsContent />
+    </Suspense>
   )
 }
