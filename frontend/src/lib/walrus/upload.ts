@@ -32,7 +32,7 @@
  */
 const PUBLISHER_URL =
   process.env.NEXT_PUBLIC_WALRUS_PUBLISHER_URL ||
-  'https://publisher-devnet.walrus.space'
+  'https://walrus.testnet.pops.one:9001'
 
 /**
  * Walrus aggregator endpoint (handles downloads)
@@ -40,7 +40,7 @@ const PUBLISHER_URL =
  */
 const AGGREGATOR_URL =
   process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR_URL ||
-  'https://aggregator-devnet.walrus.space'
+  'https://walrusagg.testnet.pops.space'
 
 /**
  * Storage duration in epochs
