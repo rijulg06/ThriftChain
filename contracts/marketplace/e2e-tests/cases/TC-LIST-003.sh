@@ -3,9 +3,9 @@
 # TC-LIST-003: Update listing price by owner
 # Expected Result: Listing updated, event emitted
 
-# Load testnet IDs
+# Load devnet IDs
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../testnet_ids.txt"
+source "$SCRIPT_DIR/../devnet_ids.txt"
 
 echo "🧪 TC-LIST-003: Update listing price by owner"
 echo "Expected Result: Listing updated, event emitted"

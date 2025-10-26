@@ -3,9 +3,9 @@
 # TC-LIST-002: Attempt listing with missing price or description
 # Expected Result: Revert transaction with error "Incomplete metadata"
 
-# Load testnet IDs
+# Load devnet IDs
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../testnet_ids.txt"
+source "$SCRIPT_DIR/../devnet_ids.txt"
 
 echo "🧪 TC-LIST-002: Attempt listing with missing price or description"
 echo "Expected Result: Revert transaction with error \"Incomplete metadata\""

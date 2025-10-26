@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Devnet Deployment IDs for ThriftChain Marketplace
+# Generated on: Sun Oct 26 01:41:21 PDT 2025
+# Network: Devnet
+# Transaction Digest: Digest:
+
+# Package and Object IDs
+MARKETPLACE_PACKAGE_ID="0xdd07446c53cdaefea08a3af3a36bde890b88a6754c9a7ab8f945e042feccedc1"
+MARKETPLACE_OBJECT_ID="0x5b00c49f8a53b5eab0b6aae72f40954386c10b6d586efe3b07704f5314b1bb8d"
+ITEMCAP_OBJECT_ID="0xb499bef6d5c106c7735e44b975c6cfc9c14fb1d4ca2c40c098a8357d944b7642"
+CLOCK_OBJECT_ID="0x6"
+UPGRADE_CAP="0x238192d334de8d2a6ef2422a4fc1f960af17076433f125ce5d4ae0c5ff4af68b"
+OWNER_ADDRESS="0x611dfec4395637563ad502655de437e4b55bba45755b9a904b70ecad8c4e12c5"
+
+# Module name
+MODULE_NAME="thriftchain"
+
+# Export for use in other scripts
+export MARKETPLACE_PACKAGE_ID
+export MARKETPLACE_OBJECT_ID
+export ITEMCAP_OBJECT_ID
+export CLOCK_OBJECT_ID
+export UPGRADE_CAP
+export OWNER_ADDRESS
+export MODULE_NAME
+
+# Usage notes:
+# - Source this file in your test scripts: source devnet_ids.txt
+# - These IDs are specific to the devnet deployment
+# - If you upgrade the package, update MARKETPLACE_PACKAGE_ID and UPGRADE_CAP
+# - CLOCK_OBJECT_ID (0x6) is standard across all Sui networks
+
