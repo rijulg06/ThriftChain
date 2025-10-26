@@ -730,6 +730,348 @@ module thriftchain::thriftchain {
         });
     }
 
+    // ===== ID-BASED WRAPPER FUNCTIONS FOR CLI TESTING =====
+    // These functions allow CLI interaction with objects stored in tables
+
+    /// Create offer by item ID (CLI-friendly wrapper)
+    public entry fun create_offer_by_id(
+        marketplace: &mut Marketplace,
+        item_id: ID,
+        amount: u64,
+        message: String,
+        expires_in_hours: u64,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let buyer = tx_context::sender(ctx);
+        
+        // Get item from table
+        let item = table::borrow(&marketplace.items, item_id);
+        let seller = item.seller;
+        
+        // Validate inputs
+        assert!(amount > 0, 9); // Amount must be positive
+        assert!(buyer != seller, 10); // Cannot make offer on own item
+        assert!(item.status == 0, 11); // Item must be active
+        assert!(expires_in_hours > 0, 12); // Must have expiration
+        assert!(expires_in_hours <= 168, 13); // Max 7 days
+
+        let current_time = clock::timestamp_ms(clock);
+        let expires_at = current_time + (expires_in_hours * 3600 * 1000);
+
+        // Create the offer
+        let offer = Offer {
+            id: object::new(ctx),
+            item_id,
+            buyer,
+            seller,
+            amount,
+            message,
+            status: 0, // Pending
+            expires_at,
+            is_counter: false,
+            created_at: current_time,
+        };
+
+        // Add to marketplace
+        let offer_id = object::id(&offer);
+        table::add(&mut marketplace.offers, offer_id, offer);
+        marketplace.offer_counter = marketplace.offer_counter + 1;
+
+        // Emit event
+        event::emit(OfferCreated {
+            offer_id,
+            item_id,
+            buyer,
+            seller,
+            amount,
+            message,
+            created_at: current_time,
+        });
+    }
+
+    /// Counter offer by offer ID (CLI-friendly wrapper)
+    public entry fun counter_offer_by_id(
+        marketplace: &mut Marketplace,
+        offer_id: ID,
+        counter_amount: u64,
+        counter_message: String,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let seller = tx_context::sender(ctx);
+        
+        // Get offer from table
+        let offer = table::borrow_mut(&mut marketplace.offers, offer_id);
+        
+        // Validate inputs
+        assert!(offer.seller == seller, 14); // Only seller can counter
+        assert!(offer.status == 0, 15); // Offer must be pending
+        assert!(counter_amount > 0, 16); // Counter amount must be positive
+        assert!(counter_amount != offer.amount, 17); // Counter must be different amount
+        assert!(clock::timestamp_ms(clock) < offer.expires_at, 18); // Offer must not be expired
+
+        let current_time = clock::timestamp_ms(clock);
+
+        // Update offer with counter details
+        offer.amount = counter_amount;
+        offer.message = counter_message;
+        offer.status = 1; // Countered
+        offer.is_counter = true;
+
+        // Emit event
+        event::emit(OfferCountered {
+            offer_id,
+            item_id: offer.item_id,
+            buyer: offer.buyer,
+            seller: offer.seller,
+            counter_amount,
+            counter_message,
+            countered_at: current_time,
+        });
+    }
+
+    /// Accept counter offer by offer ID (CLI-friendly wrapper)
+    public entry fun accept_counter_offer_by_id(
+        marketplace: &mut Marketplace,
+        offer_id: ID,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let buyer = tx_context::sender(ctx);
+        
+        // Get offer from table
+        let offer = table::borrow_mut(&mut marketplace.offers, offer_id);
+        
+        // Validate inputs
+        assert!(offer.buyer == buyer, 19); // Only buyer can accept counter
+        assert!(offer.status == 1, 20); // Offer must be countered
+        assert!(offer.is_counter, 21); // Must be a counter offer
+        assert!(clock::timestamp_ms(clock) < offer.expires_at, 22); // Offer must not be expired
+
+        // Mark offer as accepted
+        offer.status = 2; // Accepted
+    }
+
+    /// Cancel offer by offer ID (CLI-friendly wrapper)
+    public entry fun cancel_offer_by_id(
+        marketplace: &mut Marketplace,
+        offer_id: ID,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let buyer = tx_context::sender(ctx);
+        
+        // Get offer from table
+        let offer = table::borrow_mut(&mut marketplace.offers, offer_id);
+        
+        // Validate inputs
+        assert!(offer.buyer == buyer, 23); // Only buyer can cancel
+        assert!(offer.status == 0 || offer.status == 1, 24); // Offer must be pending or countered
+        assert!(clock::timestamp_ms(clock) < offer.expires_at, 25); // Offer must not be expired
+
+        let current_time = clock::timestamp_ms(clock);
+
+        // Mark offer as cancelled
+        offer.status = 4; // Cancelled
+
+        // Emit event
+        event::emit(OfferCancelled {
+            offer_id,
+            item_id: offer.item_id,
+            buyer: offer.buyer,
+            cancelled_at: current_time,
+        });
+    }
+
+    /// Reject offer by offer ID (CLI-friendly wrapper)
+    public entry fun reject_offer_by_id(
+        marketplace: &mut Marketplace,
+        offer_id: ID,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let seller = tx_context::sender(ctx);
+        
+        // Get offer from table
+        let offer = table::borrow_mut(&mut marketplace.offers, offer_id);
+        
+        // Validate inputs
+        assert!(offer.seller == seller, 26); // Only seller can reject
+        assert!(offer.status == 0, 27); // Offer must be pending
+        assert!(clock::timestamp_ms(clock) < offer.expires_at, 28); // Offer must not be expired
+
+        let current_time = clock::timestamp_ms(clock);
+
+        // Mark offer as rejected
+        offer.status = 3; // Rejected
+
+        // Emit event
+        event::emit(OfferRejected {
+            offer_id,
+            item_id: offer.item_id,
+            buyer: offer.buyer,
+            seller: offer.seller,
+            rejected_at: current_time,
+        });
+    }
+
+    /// Accept offer by IDs (CLI-friendly wrapper)
+    public entry fun accept_offer_by_id(
+        marketplace: &mut Marketplace,
+        offer_id: ID,
+        item_id: ID,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let seller = tx_context::sender(ctx);
+        
+        // Get offer and item from tables
+        let offer = table::borrow_mut(&mut marketplace.offers, offer_id);
+        let item = table::borrow(&marketplace.items, item_id);
+        
+        // Validate inputs
+        assert!(offer.seller == seller, 29); // Only seller can accept
+        assert!(offer.status == 0 || offer.status == 1, 30); // Offer must be pending or countered
+        assert!(item.status == 0, 31); // Item must be active
+        assert!(clock::timestamp_ms(clock) < offer.expires_at, 32); // Offer must not be expired
+
+        let current_time = clock::timestamp_ms(clock);
+
+        // Create escrow
+        let escrow = Escrow {
+            id: object::new(ctx),
+            buyer: offer.buyer,
+            seller: offer.seller,
+            item_id: offer.item_id,
+            amount: offer.amount,
+            status: 0, // Active
+            created_at: current_time,
+            completed_at: 0,
+        };
+
+        // Add to marketplace
+        let escrow_id = object::id(&escrow);
+        table::add(&mut marketplace.escrows, escrow_id, escrow);
+        marketplace.escrow_counter = marketplace.escrow_counter + 1;
+
+        // Mark offer as accepted
+        offer.status = 2; // Accepted
+
+        // Emit events
+        event::emit(OfferAccepted {
+            escrow_id,
+            offer_id,
+            item_id: offer.item_id,
+            buyer: offer.buyer,
+            seller: offer.seller,
+            amount: offer.amount,
+            accepted_at: current_time,
+        });
+    }
+
+    /// Confirm delivery by IDs (CLI-friendly wrapper)
+    public entry fun confirm_delivery_by_id(
+        marketplace: &mut Marketplace,
+        escrow_id: ID,
+        item_id: ID,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let buyer = tx_context::sender(ctx);
+        
+        // Get escrow and item from tables
+        let escrow = table::borrow_mut(&mut marketplace.escrows, escrow_id);
+        let item = table::borrow_mut(&mut marketplace.items, item_id);
+        
+        // Validate inputs
+        assert!(escrow.buyer == buyer, 33); // Only buyer can confirm
+        assert!(escrow.status == 0, 34); // Escrow must be active
+        assert!(item.status == 0, 35); // Item must be active
+
+        let current_time = clock::timestamp_ms(clock);
+
+        // Mark escrow as completed
+        escrow.status = 1; // Completed
+        escrow.completed_at = current_time;
+
+        // Mark item as sold
+        item.status = 1; // Sold
+
+        // Emit events
+        event::emit(ItemSold {
+            escrow_id,
+            item_id: escrow.item_id,
+            buyer: escrow.buyer,
+            seller: escrow.seller,
+            amount: escrow.amount,
+            sold_at: current_time,
+        });
+    }
+
+    /// Dispute escrow by escrow ID (CLI-friendly wrapper)
+    public entry fun dispute_escrow_by_id(
+        marketplace: &mut Marketplace,
+        escrow_id: ID,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let buyer = tx_context::sender(ctx);
+        
+        // Get escrow from table
+        let escrow = table::borrow_mut(&mut marketplace.escrows, escrow_id);
+        
+        // Validate inputs
+        assert!(escrow.buyer == buyer, 36); // Only buyer can dispute
+        assert!(escrow.status == 0, 37); // Escrow must be active
+
+        let current_time = clock::timestamp_ms(clock);
+
+        // Mark escrow as disputed
+        escrow.status = 2; // Disputed
+
+        // Emit event
+        event::emit(EscrowDisputed {
+            escrow_id,
+            item_id: escrow.item_id,
+            buyer: escrow.buyer,
+            seller: escrow.seller,
+            disputed_at: current_time,
+        });
+    }
+
+    /// Refund escrow by escrow ID (CLI-friendly wrapper)
+    public entry fun refund_escrow_by_id(
+        marketplace: &mut Marketplace,
+        escrow_id: ID,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let caller = tx_context::sender(ctx);
+        
+        // Get escrow from table
+        let escrow = table::borrow_mut(&mut marketplace.escrows, escrow_id);
+        
+        // Validate inputs
+        assert!(escrow.seller == caller, 38); // Only seller can refund (or admin in future)
+        assert!(escrow.status == 2, 39); // Escrow must be disputed
+
+        let current_time = clock::timestamp_ms(clock);
+
+        // Mark escrow as refunded
+        escrow.status = 3; // Refunded
+
+        // Emit event
+        event::emit(EscrowRefunded {
+            escrow_id,
+            item_id: escrow.item_id,
+            buyer: escrow.buyer,
+            seller: escrow.seller,
+            amount: escrow.amount,
+            refunded_at: current_time,
+        });
+    }
+
      // ===== VIEW FUNCTIONS =====
 
      // Add these new view functions

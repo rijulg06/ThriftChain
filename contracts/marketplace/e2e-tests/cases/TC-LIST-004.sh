@@ -3,9 +3,9 @@
 # TC-LIST-004: Update listing by non-owner
 # Expected Result: Revert: "Unauthorized action"
 
-# Load testnet IDs
+# Load devnet IDs
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../testnet_ids.txt"
+source "$SCRIPT_DIR/../devnet_ids.txt"
 
 echo "🧪 TC-LIST-004: Update listing by non-owner"
 echo "Expected Result: Revert: \"Unauthorized action\""
