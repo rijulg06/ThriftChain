@@ -23,10 +23,16 @@
  * Walrus publisher endpoint (handles uploads)
  * This is a public testnet service that accepts file uploads and stores them on Walrus
  * Multiple publishers available - see Walrus docs for full list
+ * 
+ * Note: The default publisher requires WAL token payment.
+ * For free uploads on testnet, you can:
+ * 1. Set up your own publisher with a funded wallet
+ * 2. Use a sponsored publisher if available
+ * 3. Add NEXT_PUBLIC_WALRUS_PUBLISHER_URL to .env.local
  */
 const PUBLISHER_URL =
   process.env.NEXT_PUBLIC_WALRUS_PUBLISHER_URL ||
-  'https://publisher.walrus-testnet.walrus.space'
+  'https://publisher-devnet.walrus.space'
 
 /**
  * Walrus aggregator endpoint (handles downloads)
@@ -34,7 +40,7 @@ const PUBLISHER_URL =
  */
 const AGGREGATOR_URL =
   process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR_URL ||
-  'https://aggregator.walrus-testnet.walrus.space'
+  'https://aggregator-devnet.walrus.space'
 
 /**
  * Storage duration in epochs
