@@ -305,7 +305,7 @@ export function buildCancelOfferTransaction(offerId: string): Transaction {
   const tx = new Transaction()
 
   tx.moveCall({
-    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::cancel_offer`,
+    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::cancel_offer_by_id`,
     arguments: [
       tx.object(MARKETPLACE_ID),
       tx.pure.id(offerId),
@@ -332,7 +332,7 @@ export function buildRejectOfferTransaction(offerId: string): Transaction {
   const tx = new Transaction()
 
   tx.moveCall({
-    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::reject_offer`,
+    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::reject_offer_by_id`,
     arguments: [
       tx.object(MARKETPLACE_ID),
       tx.pure.id(offerId),
@@ -435,7 +435,7 @@ export function buildAcceptOfferTransaction(params: AcceptOfferParams): Transact
   const tx = new Transaction()
 
   tx.moveCall({
-    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::accept_offer`,
+    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::accept_offer_by_id`,
     arguments: [
       tx.object(MARKETPLACE_ID),
       tx.pure.id(params.offerId),
