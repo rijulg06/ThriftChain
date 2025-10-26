@@ -1,14 +1,44 @@
 "use client"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { CompactItemCard } from "@/components/CompactItemCard"
+import type { ItemCardProps } from "@/components/ItemCard"
+import { getAllItems } from "@/lib/sui/queries"
+import { ItemStatus } from "@/lib/types/sui-objects"
 
 export default function Home() {
   const router = useRouter()
   const [q, setQ] = useState("")
+  const [items, setItems] = useState<ItemCardProps[]>([])
+
+  useEffect(() => {
+    // Load items for the carousel
+    const loadItems = async () => {
+      try {
+        const allItems = await getAllItems(undefined, { limit: 50 })
+        const activeItems = allItems.data.filter(item => item.fields.status === ItemStatus.Active)
+
+        const mapped: ItemCardProps[] = activeItems.map(item => ({
+          objectId: item.objectId,
+          title: item.fields.title,
+          priceMist: BigInt(item.fields.price),
+          category: item.fields.category,
+          walrusImageIds: item.fields.walrus_image_ids || [],
+          seller: item.fields.seller,
+        }))
+
+        const shuffled = [...mapped].sort(() => Math.random() - 0.5)
+        setItems(shuffled.slice(0, 20))
+      } catch (error) {
+        console.error('Failed to load marketplace items:', error)
+      }
+    }
+    loadItems()
+  }, [])
 
   return (
-    <div className="min-h-screen">
-      <section className="mx-auto max-w-5xl px-6 pt-24 pb-16">
+    <div className="max-h-screen">
+      <section className="mx-auto max-w-5xl px-6 pt-24">
         <div className="retro-card retro-shadow p-5">
           <h1 className="text-3xl sm:text-5xl tracking-tight">
             Discover and trade on-chain thrift finds
@@ -46,6 +76,32 @@ export default function Home() {
           </a>
         </div>
       </section>
+
+      {/* Infinite Scrolling Item Carousel */}
+      {items.length > 0 && (
+        <section className="overflow-hidden">
+          <div className="mb-6 text-center mt-20">
+          </div>
+          
+          {/* Scrolling Container */}
+          <div className="relative">
+            {/* First loop */}
+            <div className="flex gap-6 animate-scroll-infinite">
+              {items.map((item, index) => (
+                <div key={`first-${index}`} className="flex-shrink-0">
+                  <CompactItemCard {...item} />
+                </div>
+              ))}
+              {/* Duplicate for seamless loop */}
+              {items.map((item, index) => (
+                <div key={`duplicate-${index}`} className="flex-shrink-0">
+                  <CompactItemCard {...item} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

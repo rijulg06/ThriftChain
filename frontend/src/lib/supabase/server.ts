@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
@@ -36,17 +37,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * ```
  */
 export function getSupabaseServerClient() {
-  const cookieStore = cookies()
-
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      getAll() {
-        return cookieStore.getAll()
+      async getAll() {
+        const store = await cookies()
+        return store.getAll()
       },
-      setAll(cookiesToSet) {
+      async setAll(cookiesToSet) {
         try {
+          const store = await cookies()
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
+            store.set(name, value, options)
           )
         } catch {
           // The `setAll` method was called from a Server Component.
@@ -80,7 +81,6 @@ export function getSupabaseAdminClient() {
     throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable.')
   }
 
-  const { createClient } = require('@supabase/supabase-js')
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,

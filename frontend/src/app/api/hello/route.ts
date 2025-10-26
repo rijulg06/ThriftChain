@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   let body: unknown = null
   try {
     body = await request.json()
-  } catch (e) {
+  } catch {
     // ignore JSON parse errors; body will remain null
   }
 

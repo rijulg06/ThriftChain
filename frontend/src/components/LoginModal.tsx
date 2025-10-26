@@ -10,7 +10,7 @@ type Props = {
 }
 
 export function LoginModal({ open, onOpenChange }: Props) {
-  const { connected, account, allAvailableWallets, select, disconnect, status } = useWallet()
+  const { connected, account, allAvailableWallets, select, disconnect } = useWallet()
 
   async function startZkLogin() {
     try {

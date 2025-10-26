@@ -1,16 +1,16 @@
 # ThriftChain Marketplace Testnet IDs
 # Auto-updated by scripts - DO NOT EDIT MANUALLY during active testing
 # Network: Testnet
-# Last Updated: Package upgraded to version 2 (HCQy5kmQ9pCJryF2svR6pHHJozpHFss9uumDdXmF7o7z)
+# Last Updated: Package published 2025-10-25 (A6jodJjA8KvbVYfw98th8NhReEHzZC3eGpwe8toPkcdA)
 
 # ===== CORE INFRASTRUCTURE =====
 # Package and core objects created during deployment
-MARKETPLACE_PACKAGE_ID="0x8dea90c96cf654bbff1e6b0406bbeb00c394163dae7a6d37c1f0c1c75fbd1f2e"  # Version 2 (upgraded)
-MARKETPLACE_OBJECT_ID="0xfd7e885b6b873063703561cbe543062b28b17ab57dc546f75555e1643b274457"
-ITEMCAP_OBJECT_ID="0x5b3035026059e861524dcc6ce3a9ca6c71af2eb2743eadfe82d5999aba8fce52"
+MARKETPLACE_PACKAGE_ID="0x1a59e968a4ae1d2df37e31960f5b1f21c732ea04ab7b37d1398e3c45ce42de21"  # Version 1 (A56E1oHUgJUR6ZDa8xdwx9SZ3xS6XcBhesHUEoNAP2Fg)
+MARKETPLACE_OBJECT_ID="0xd7118fe78e77e322a0b7a48a924e8e8eb59d4e1d19a8282c99c898808167541d"
+ITEMCAP_OBJECT_ID="0x512cd8b78f11e4709df472346a8deab26654e2b1ededa584b8ca021309cab108"
 CLOCK_OBJECT_ID="0x6"
-UPGRADE_CAP="0x208c56bc74471aae5e6f4a3e0b3a5e2d777f24ae7e710c9b1d9bc1dd4eeefc52"
-OWNER_ADDRESS="0xba36ed4eb734e94d76e566883a8c883ee368e85386b30dbf1e150e2c0ed807a0"
+UPGRADE_CAP="0xf71708d6bd7b003d30eef0ae27794b265a8ca7af368df381b02fd97a365c573c"
+OWNER_ADDRESS="0xeea7d0949dd699b26f3df08081ec4d1a85008e65a61f48d01ac1268a2796ac3c"
 
 # ===== CREATED ITEMS =====
 # Format: ITEM_ID_TC_XXX="0x..." # Test case or description
