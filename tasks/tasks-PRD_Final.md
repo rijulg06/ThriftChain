@@ -38,6 +38,178 @@
 
 ---
 
+## 🧪 TESTING WORKFLOW & DOCUMENTATION
+
+### **MANDATORY: Generate Test Files for Each Task**
+
+**After completing ANY task, you MUST:**
+
+1. **Generate a test markdown file** in `tasks/tests/` directory
+2. **File naming convention:** `[task-number]-testing.md`
+   - Example: `tasks/tests/1.1-testing.md`
+   - Example: `tasks/tests/2.3-testing.md`
+   - Example: `tasks/tests/4.7-testing.md`
+
+3. **Test file purposes:**
+   - **Human Developer Understanding:** Help developers understand the code being written
+   - **Functionality Confirmation:** Verify functionality according to guidelines in `tasks/TESTING-GUIDE.md`
+   - **Integration Testing:** Ensure tasks work together properly
+   - **Regression Prevention:** Re-test after changes
+
+### **Test File Structure (REQUIRED)**
+
+Each test file must follow this exact structure:
+
+```markdown
+# Task [X.Y] Testing Instructions
+## [Task Description from PRD]
+
+### Prerequisites
+- List of required completed tasks
+- Required setup or dependencies
+- Environment requirements
+
+---
+
+## Step 1: [First Verification Step]
+
+1. **Action to perform**
+2. **Expected output**
+3. **Verification method**
+4. **Success criteria**
+
+---
+
+## Step 2: [Second Verification Step]
+
+1. **Action to perform**
+2. **Expected output**
+3. **Verification method**
+4. **Success criteria**
+
+---
+
+## Move Contract Testing (Sui-Specific)
+
+### Unit Tests in Move
+- [ ] **Test module structure**: Create `*_tests.move` file in `tests/` directory
+- [ ] **Test annotations**: Use `#[test]` and `#[test, expected_failure]` properly
+- [ ] **Test scenario usage**: Use `test_scenario::begin()` for complex object interactions
+- [ ] **Dummy context**: Use `tx_context::dummy()` for simple function tests
+- [ ] **Event testing**: Verify events are emitted using `event::events_by_type<T>()`
+- [ ] **Clock testing**: Use `clock::create_for_testing()` for time-dependent functions
+- [ ] **Assertions**: Use `assert_eq!` instead of `assert!` with equality checks
+- [ ] **Cleanup**: Use `destroy_for_testing()` for proper test cleanup
+
+### Move Test Commands
+- [ ] **Run tests**: `sui move test` executes all unit tests
+- [ ] **Test specific module**: `sui move test --filter <module_name>`
+- [ ] **Test with gas**: `sui move test --gas-budget <amount>`
+- [ ] **Test coverage**: `sui move test --coverage` (if available)
+
+### Integration Testing
+- [ ] **Local network testing**: Use `sui start` for local development
+- [ ] **Testnet deployment**: Deploy to testnet for integration testing
+- [ ] **Transaction testing**: Test full transaction flows with real objects
+- [ ] **Event subscription**: Test real-time event handling
+- [ ] **Gas estimation**: Verify gas costs are reasonable
+
+---
+
+## Success Criteria Checklist
+
+- [ ] Criteria 1: [Specific, measurable outcome]
+- [ ] Criteria 2: [Specific, measurable outcome]
+- [ ] Criteria 3: [Specific, measurable outcome]
+- [ ] **Move unit tests pass**: `sui move test` returns success
+- [ ] **Integration tests pass**: Full transaction flow works on testnet
+- [ ] **Events verified**: All expected events are emitted correctly
+- [ ] **Gas costs reasonable**: Transaction gas costs are within acceptable limits
+
+---
+
+## Troubleshooting
+
+### Common Error: [Description]
+**Solution:** [How to fix]
+
+### Common Error: [Description]
+**Solution:** [How to fix]
+
+### Sui-Specific Errors
+
+#### "TestScenario not properly cleaned up"
+**Solution:** Ensure `test_scenario::end()` is called in all test functions
+
+#### "Clock testing functions not available"
+**Solution:** Use `clock::create_for_testing()` and related testing functions
+
+#### "Event not found in test"
+**Solution:** Use `event::events_by_type<T>()` to query emitted events
+
+#### "Gas budget exceeded"
+**Solution:** Increase gas budget or optimize contract functions
+
+---
+
+## Next Steps
+
+After completing Task X.Y, proceed to **Task X.Z**: [Next task description]
+```
+
+### **Testing Requirements**
+
+**For EVERY task, the test file must include:**
+
+1. **Prerequisites verification** - Check previous tasks are complete
+2. **Step-by-step verification** - Manual testing steps with expected outputs
+3. **Success criteria checklist** - Measurable outcomes
+4. **Troubleshooting section** - Common errors and solutions
+5. **Integration verification** - Ensure task works with existing system
+6. **Next steps guidance** - Clear path to next task
+
+### **Move Contract Testing Requirements (Sui-Specific)**
+
+**For Move contract tasks (Phase 1), test files must additionally include:**
+
+1. **Unit test verification** - `sui move test` command execution and results
+2. **Test scenario validation** - Proper use of `test_scenario::begin()` and `test_scenario::end()`
+3. **Event emission testing** - Verification that events are emitted correctly
+4. **Clock testing** - Time-dependent function testing with `clock::create_for_testing()`
+5. **Gas cost verification** - Ensure gas costs are reasonable and within limits
+6. **Integration testing** - Full transaction flow testing on testnet
+7. **Error condition testing** - Use `#[test, expected_failure]` for error cases
+8. **Object lifecycle testing** - Proper object creation, transfer, and destruction
+
+### **Testing Philosophy**
+
+- **Manual Verification First:** All tests designed for human developers
+- **Incremental Testing:** Each test builds on previous tasks
+- **Security-First:** Verify security configurations and access controls
+- **Integration Focus:** Tests verify integration, not just isolation
+- **Documentation:** Tests serve as living documentation
+
+### **Testing Workflow**
+
+```bash
+# 1. Complete the task implementation
+# 2. Generate test file: tasks/tests/[task-number]-testing.md
+# 3. Follow all verification steps manually
+# 4. Verify all success criteria
+# 5. Only mark task complete (✅) after all tests pass
+# 6. Update tasks-PRD_Final.md with checkmark
+# 7. Proceed to next task
+```
+
+### **Quality Assurance**
+
+- **No task is complete without passing tests**
+- **Test files must be generated before marking complete**
+- **All success criteria must be verified**
+- **Integration with existing system must be confirmed**
+
+---
+
 ## 📋 REVISED TASK LIST (BLOCKCHAIN-FIRST)
 
 ### 🔥 PHASE 0: Critical Blockers (MUST DO FIRST)
@@ -66,19 +238,19 @@
 
 **Priority:** CRITICAL - Nothing works without these!
 
-- [ ] **1.1** Create Move contract directory structure
+- [x] **1.1** Create Move contract directory structure
   - `mkdir -p contracts/marketplace/sources`
   - Verify Move.toml exists with correct Sui framework dependency
   - Test: `cd contracts/marketplace && sui move build` succeeds (will fail until contract exists)
 
-- [ ] **1.2** Write `thriftchain.move` - ThriftItem struct & create_item function
+- [x] **1.2** Write `thriftchain.move` - ThriftItem struct & create_item function
   - Define `ThriftItem` Move struct with all fields (title, description, price, walrus_image_ids, etc.)
   - Implement `create_item()` entry function to mint item NFT
   - Add events: `ItemCreated`
   - Test: `sui move build` compiles without errors
   - **File:** `contracts/marketplace/sources/thriftchain.move`
 
-- [ ] **1.3** Write Offer system in Move contract with counter-offer negotiation
+- [x] **1.3** Write Offer system in Move contract with counter-offer negotiation
   - Define `Offer` Move struct (item_id, buyer, seller, amount, message, status, expires_at, is_counter)
   - Define event structs: `OfferCreated`, `OfferCountered`, `OfferCancelled`, `OfferRejected` (all with copy + drop abilities)
   - Implement `create_offer()` entry function - buyer makes initial offer
@@ -87,7 +259,17 @@
   - Implement `cancel_offer()` entry function - buyer cancels own offer
   - Implement `reject_offer()` entry function - seller rejects offer
   - Emit appropriate events in each function using `sui::event::emit()`
+  - **MANDATORY: Create comprehensive unit tests in `tests/thriftchain_tests.move`**
+    - Test `create_offer()` with valid inputs, invalid inputs, expired offers
+    - Test `counter_offer()` with seller permission, invalid amounts, expired offers
+    - Test `accept_counter_offer()` with buyer permission, valid counter offers
+    - Test `cancel_offer()` with buyer permission, various offer states
+    - Test `reject_offer()` with seller permission, valid offer states
+    - Test event emissions for all functions using `event::events_by_type<T>()`
+    - Test error conditions with `#[test, expected_failure]` annotations
+    - Test time-dependent functions with `clock::create_for_testing()`
   - Test: `sui move build` compiles without errors
+  - Test: `sui move test` passes all unit tests
 
 - [ ] **1.4** Write Escrow system in Move contract
   - Define `Escrow` Move struct (buyer, seller, item_id, amount, status)
@@ -96,28 +278,45 @@
   - Implement `dispute_escrow()` - marks escrow as disputed
   - Implement `refund_escrow()` - returns funds to buyer
   - Add events: `OfferAccepted`, `ItemSold`, `EscrowDisputed`, `EscrowRefunded`
+  - **MANDATORY: Create comprehensive unit tests in `tests/thriftchain_tests.move`**
+    - Test `accept_offer()` with valid offers, invalid permissions, expired offers
+    - Test `confirm_delivery()` with buyer permission, valid escrow states
+    - Test `dispute_escrow()` with buyer permission, valid escrow states
+    - Test `refund_escrow()` with seller/admin permission, disputed escrows
+    - Test event emissions for all functions using `event::events_by_type<T>()`
+    - Test error conditions with `#[test, expected_failure]` annotations
+    - Test fund transfers and object ownership changes
   - Test: `sui move build` compiles
+  - Test: `sui move test` passes all unit tests
 
-- [ ] **1.5** Write item management functions in Move contract
+- [x] **1.5** Write item management functions in Move contract
   - Implement `update_item_price()` - seller can change price
   - Implement `cancel_item()` - seller can cancel listing
   - Implement `mark_as_sold()` - automatically called when escrow completes
   - Add events: `ItemPriceUpdated`, `ItemCancelled`, `ItemMarkedAsSold`
   - Emit events in each function using `sui::event::emit()`
+  - **MANDATORY: Create comprehensive unit tests in `tests/thriftchain_tests.move`**
+    - Test `update_item_price()` with seller permission, valid prices, invalid prices
+    - Test `cancel_item()` with seller permission, active items only
+    - Test `mark_as_sold()` with valid item states, automatic calls
+    - Test event emissions for all functions using `event::events_by_type<T>()`
+    - Test error conditions with `#[test, expected_failure]` annotations
+    - Test state transitions and validation
   - Test: `sui move build` compiles, all functions present
+  - Test: `sui move test` passes all unit tests
 
-- [ ] **1.6** Deploy contracts to Sui testnet
+- [x] **1.6** Deploy contracts to Sui testnet
   - `cd contracts/marketplace && sui client publish --gas-budget 100000000`
   - Save Package ID from output
   - Save all created object IDs
   - Test: Can see package on Sui Explorer (https://suiexplorer.com/?network=testnet)
 
-- [ ] **1.7** Update frontend config with deployed contract address
+- [x] **1.7** Update frontend config with deployed contract address
   - Add `NEXT_PUBLIC_THRIFTCHAIN_PACKAGE_ID=0x...` to `.env.local`
   - Update `frontend/src/lib/sui/queries.ts` to use env variable
   - Test: Import `THRIFTCHAIN_PACKAGE_ID` in frontend without errors
 
-- [ ] **1.8** Test contract functions end-to-end on testnet
+- [x] **1.8** Test contract functions end-to-end on testnet
   - Use Sui CLI to call `create_item` and verify item NFT minted
   - Use Sui CLI to call `create_offer` and verify offer created
   - Use Sui CLI to call `accept_offer` and verify escrow created
@@ -129,13 +328,13 @@
 
 **Priority:** HIGH - Users need to list items to populate marketplace
 
-- [ ] **2.1** Create TypeScript types for API responses (DEV 3)
+- [ ] **2.1** Create TypeScript types for API responses
   - Create `frontend/src/lib/types/api.ts`
   - Define types for API request/response bodies
   - Define error response types
   - Test: Can import types without errors
 
-- [ ] **2.2** Create Walrus upload API route (DEV 3)
+- [ ] **2.2** Create Walrus upload API route
   - `frontend/src/app/api/walrus/upload/route.ts`
   - POST endpoint: accepts File, returns Walrus blob ID
   - Use `uploadToWalrus()` from `lib/walrus/client.ts`
@@ -394,8 +593,17 @@
 
 ## 🧪 TESTING WORKFLOW
 
+**After Each Task (MANDATORY):**
+1. ✅ Complete the task implementation
+2. 📝 Generate test file: `tasks/tests/[task-number]-testing.md`
+3. 🧪 Follow all verification steps in the test file
+4. ✅ Verify all success criteria are met
+5. ✅ Only mark task complete (✅) after all tests pass
+6. 📋 Update tasks-PRD_Final.md with checkmark
+7. ➡️ Proceed to next task
+
 **After Each Phase:**
-1. ✅ Complete all tasks in phase
+1. ✅ Complete alFl tasks in phase (with individual test files)
 2. 🧪 Test end-to-end flow for that phase
 3. 📋 Document any bugs/issues
 4. ✅ Fix critical bugs before moving to next phase

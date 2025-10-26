@@ -17,3 +17,4 @@ export function getSuiClient(network: 'testnet' | 'mainnet' | 'devnet' = 'testne
  * Default Sui client for testnet
  */
 export const suiClient = getSuiClient('testnet')
+
