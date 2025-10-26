@@ -342,10 +342,10 @@ export default function StashPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto">
+        <div className="flex gap-2 mb-6 overflow-x-auto h-20">
           <button
             onClick={() => setActiveTab('my-items')}
-            className={`retro-btn px-6 py-3 whitespace-nowrap ${
+            className={`retro-btn px-6 py-3 whitespace-nowrap h-16 ${
               activeTab === 'my-items' ? 'opacity-100' : 'opacity-60'
             }`}
           >
@@ -353,7 +353,7 @@ export default function StashPage() {
           </button>
           <button
             onClick={() => setActiveTab('my-offers')}
-            className={`retro-btn px-6 py-3 whitespace-nowrap ${
+            className={`retro-btn px-6 py-3 whitespace-nowrap h-16 ${
               activeTab === 'my-offers' ? 'opacity-100' : 'opacity-60'
             }`}
           >
@@ -361,7 +361,7 @@ export default function StashPage() {
           </button>
           <button
             onClick={() => setActiveTab('transactions')}
-            className={`retro-btn px-6 py-3 whitespace-nowrap ${
+            className={`retro-btn px-6 py-3 whitespace-nowrap h-16 ${
               activeTab === 'transactions' ? 'opacity-100' : 'opacity-60'
             }`}
           >
