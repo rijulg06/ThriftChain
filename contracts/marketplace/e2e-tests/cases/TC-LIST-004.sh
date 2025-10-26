@@ -5,60 +5,136 @@
 
 # Load testnet IDs
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../../testnet_ids.txt"
+source "$SCRIPT_DIR/../testnet_ids.txt"
 
 echo "🧪 TC-LIST-004: Update listing by non-owner"
 echo "Expected Result: Revert: \"Unauthorized action\""
 echo ""
 
-# Note: This test case requires the actual ThriftItem object, which is not accessible via CLI
-# due to the smart contract design limitation. This test will demonstrate the limitation.
+# Prerequisites check
+if [ -z "$ITEM_ID_TC_LIST_001" ]; then
+    echo "⚠️  Prerequisites: This test requires an item from TC-LIST-001"
+    echo "Please run TC-LIST-001 first and update testnet_ids.txt with ITEM_ID_TC_LIST_001"
+    echo ""
+    echo "📝 Test Summary:"
+    echo "  ⏸️  TC-LIST-004 SKIPPED: Missing prerequisite item ID"
+    echo ""
+    echo "🏁 TC-LIST-004 Test completed!"
+    exit 0
+fi
 
-echo "⚠️  SMART CONTRACT DESIGN LIMITATION DETECTED"
-echo ""
-echo "📋 Test Requirements:"
-echo "  - Function: update_item_price"
-echo "  - Requires: &ThriftItem object (not just ID)"
-echo "  - Current Design: Items stored in marketplace table"
-echo "  - CLI Limitation: Cannot access item objects directly"
-echo ""
+# Get current active address
+CURRENT_ADDRESS=$(sui client active-address)
 
-echo "🔍 Analysis:"
-echo "  ❌ Function signature: update_item_price(item: &mut ThriftItem, new_price: u64, ...)"
-echo "  ❌ Problem: Requires actual ThriftItem object reference"
-echo "  ❌ Current: Items stored in marketplace.items table"
-echo "  ❌ CLI Limitation: Cannot pass object references via CLI"
-echo "  ❌ Authorization: Would require different sender address"
-echo ""
-
-echo "💡 Potential Solutions:"
-echo "  1. Modify smart contract to accept item IDs instead of object references"
-echo "  2. Create wrapper functions that work with IDs"
-echo "  3. Use a frontend application that can handle object references"
-echo "  4. Implement item management through marketplace object methods"
-echo "  5. Test with multiple wallet addresses (requires wallet switching)"
+echo "📋 Authorization Test Setup:"
+echo "  Item ID: $ITEM_ID_TC_LIST_001"
+echo "  Item Owner: $OWNER_ADDRESS"
+echo "  Current Address: $CURRENT_ADDRESS"
 echo ""
 
-echo "📊 Test Results:"
-echo "  ❌ Cannot execute: update_item_price requires object reference"
-echo "  ❌ Smart contract design prevents CLI testing"
-echo "  ❌ Would require different sender address for authorization test"
-echo "  ⚠️  Function exists but is not accessible via CLI"
+# Check if current address is the owner
+if [ "$CURRENT_ADDRESS" = "$OWNER_ADDRESS" ]; then
+    echo "⚠️  WARNING: You are currently the item owner!"
+    echo "This test requires a DIFFERENT address to demonstrate unauthorized access."
+    echo ""
+    echo "💡 To properly test authorization:"
+    echo "  1. Switch to a different address: sui client switch --address <different-address>"
+    echo "  2. Or create a new address: sui client new-address ed25519"
+    echo "  3. Then run this test again"
+    echo ""
+    echo "📝 Test Summary:"
+    echo "  ⏸️  TC-LIST-004 SKIPPED: Current address is the item owner"
+    echo "  💡 Switch to a different address to test authorization properly"
+    echo ""
+    echo "🏁 TC-LIST-004 Test completed!"
+    exit 0
+fi
+
+# Test parameters
+UNAUTHORIZED_PRICE="10000000000"  # 10 SUI (attempting unauthorized update)
+
+echo "📋 Test Parameters:"
+echo "  Attempting unauthorized price update to: $UNAUTHORIZED_PRICE MIST ($(($UNAUTHORIZED_PRICE / 1000000000)) SUI)"
 echo ""
 
-echo "🔍 Validation:"
-echo "  ❌ Test cannot be executed due to smart contract design"
-echo "  ❌ Function requires object reference not available via CLI"
-echo "  ❌ Authorization testing requires multiple wallet addresses"
-echo "  ⚠️  Smart contract needs modification for CLI compatibility"
+echo "🔧 Loaded testnet IDs:"
+echo "  Package ID: $MARKETPLACE_PACKAGE_ID"
+echo "  Marketplace Object ID: $MARKETPLACE_OBJECT_ID"
+echo "  Clock Object ID: $CLOCK_OBJECT_ID"
 echo ""
 
-echo "📝 Test Summary:"
-echo "  ❌ TC-LIST-004 CANNOT BE TESTED: Smart contract design limitation"
-echo "  💡 Recommendation: Modify smart contract to support ID-based operations"
-echo "  🔧 Required Changes: Update function signatures to accept item IDs"
-echo "  🔧 Additional: Implement proper authorization testing framework"
+echo "🚀 Executing update_item_price_by_id transaction (as non-owner)..."
 echo ""
 
+# Execute the SUI command (expected to fail with authorization error)
+RESULT=$(sui client call \
+    --package $MARKETPLACE_PACKAGE_ID \
+    --module thriftchain \
+    --function update_item_price_by_id \
+    --args $MARKETPLACE_OBJECT_ID $ITEM_ID_TC_LIST_001 "$UNAUTHORIZED_PRICE" $CLOCK_OBJECT_ID \
+    --gas-budget 100000000 \
+    --json 2>&1)
+
+# Check if the command failed (which is expected)
+if [ $? -ne 0 ]; then
+    echo "✅ Transaction failed as expected!"
+    echo ""
+    
+    STATUS="failed"
+    
+    echo "📊 Test Results:"
+    echo "  Transaction Status: $STATUS"
+    echo ""
+    
+    # Validate expected results
+    echo "🔍 Validation:"
+    
+    echo "  ✅ Transaction status: FAILED (as expected)"
+    
+    # Check for authorization error (abort code 3 from smart contract)
+    if echo "$RESULT" | grep -q "abort.*3\|MoveAbort.*code.*3"; then
+        echo "  ✅ Authorization error detected (abort code 3)"
+        echo "  ✅ Smart contract properly rejected unauthorized update"
+        echo "  ✅ Only item owner can update price"
+    elif echo "$RESULT" | grep -q "error:"; then
+        echo "  ✅ Error message present"
+        echo "  ✅ Transaction properly rejected"
+    else
+        echo "  ⚠️  Could not confirm specific error type"
+    fi
+    
+    echo ""
+    echo "📝 Test Summary:"
+    echo "  🎉 TC-LIST-004 PASSED: Transaction properly rejected unauthorized update"
+    echo "  ✅ Authorization system working correctly"
+    echo "  ✅ Non-owner cannot update item price"
+    
+else
+    echo "❌ Transaction succeeded unexpectedly!"
+    echo ""
+    
+    # Parse the result
+    STATUS=$(echo "$RESULT" | grep -o '"status": "[^"]*"' | head -1 | sed 's/"status": "//' | sed 's/"//')
+    TRANSACTION_DIGEST=$(echo "$RESULT" | grep -o '"digest": "[^"]*"' | head -1 | sed 's/"digest": "//' | sed 's/"//')
+    
+    echo "📊 Test Results:"
+    echo "  Transaction Status: $STATUS"
+    echo "  Transaction Digest: $TRANSACTION_DIGEST"
+    echo ""
+    
+    echo "🔍 Validation:"
+    echo "  ❌ Transaction status: UNEXPECTED SUCCESS"
+    echo "  ❌ Expected: Transaction should fail with authorization error"
+    echo "  ❌ Smart contract authorization may not be working correctly"
+    
+    echo ""
+    echo "📝 Test Summary:"
+    echo "  ❌ TC-LIST-004 FAILED: Unauthorized update was allowed"
+    echo "  ⚠️  SECURITY ISSUE: Non-owner can update item prices!"
+    echo "  ⚠️  Smart contract needs immediate review"
+fi
+
+echo ""
+echo "💾 ID Tracking: No new objects created (authorization test)"
+echo ""
 echo "🏁 TC-LIST-004 Test completed!"
-

@@ -5,7 +5,7 @@
 
 # Load testnet IDs
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../../testnet_ids.txt"
+source "$SCRIPT_DIR/../testnet_ids.txt"
 
 echo "🧪 TC-LIST-001: List an item with valid fields (price, description)"
 echo "Expected Result: Listing created with unique ID, ownership bound to seller"

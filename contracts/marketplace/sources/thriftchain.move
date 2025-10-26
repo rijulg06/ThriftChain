@@ -298,6 +298,35 @@ module thriftchain::thriftchain {
         });
     }
 
+    /// Update the price of an item by ID (CLI-friendly version)
+    public entry fun update_item_price_by_id(
+        marketplace: &mut Marketplace,
+        item_id: ID,
+        new_price: u64,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let item = table::borrow_mut(&mut marketplace.items, item_id);
+        
+        // Only seller can update price
+        assert!(item.seller == tx_context::sender(ctx), 3);
+        // Item must be active
+        assert!(item.status == 0, 4);
+        // New price must be positive
+        assert!(new_price > 0, 5);
+
+        let old_price = item.price;
+        item.price = new_price;
+
+        // Emit event
+        event::emit(ItemPriceUpdated {
+            item_id,
+            old_price,
+            new_price,
+            updated_at: clock::timestamp_ms(clock),
+        });
+    }
+
     /// Cancel an item listing (only seller can do this)
     public entry fun cancel_item(
         item: &mut ThriftItem,
@@ -319,6 +348,30 @@ module thriftchain::thriftchain {
         });
     }
 
+    /// Cancel an item listing by ID (CLI-friendly version)
+    public entry fun cancel_item_by_id(
+        marketplace: &mut Marketplace,
+        item_id: ID,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let item = table::borrow_mut(&mut marketplace.items, item_id);
+        
+        // Only seller can cancel
+        assert!(item.seller == tx_context::sender(ctx), 6);
+        // Item must be active
+        assert!(item.status == 0, 7);
+
+        item.status = 2; // Cancelled
+
+        // Emit event
+        event::emit(ItemCancelled {
+            item_id,
+            seller: item.seller,
+            cancelled_at: clock::timestamp_ms(clock),
+        });
+    }
+
     /// Mark an item as sold (called by escrow system)
     public entry fun mark_as_sold(
         item: &mut ThriftItem,
@@ -333,6 +386,28 @@ module thriftchain::thriftchain {
         // Emit event
         event::emit(ItemMarkedAsSold {
             item_id: object::id(item),
+            seller: item.seller,
+            sold_at: clock::timestamp_ms(clock),
+        });
+    }
+
+    /// Mark an item as sold by ID (CLI-friendly version)
+    public entry fun mark_as_sold_by_id(
+        marketplace: &mut Marketplace,
+        item_id: ID,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let item = table::borrow_mut(&mut marketplace.items, item_id);
+        
+        // Item must be active
+        assert!(item.status == 0, 8);
+
+        item.status = 1; // Sold
+
+        // Emit event
+        event::emit(ItemMarkedAsSold {
+            item_id,
             seller: item.seller,
             sold_at: clock::timestamp_ms(clock),
         });
