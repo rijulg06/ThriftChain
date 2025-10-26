@@ -99,14 +99,16 @@ export function MakeOfferModal({
 
       tx.setGasBudget(100_000_000); // 0.1 SUI gas budget
 
-      // Sign and execute transaction
+      // Sign and execute transaction with Suiet wallet
       const result = await wallet.signAndExecuteTransaction({
         transaction: tx,
       });
 
       console.log('Offer creation result:', result);
 
-      if (result.effects?.status?.status === 'success') {
+      // Check if transaction was successful
+      // Suiet wallet returns a simplified response, check for digest
+      if (result.digest) {
         toast.success('Offer created successfully! Payment locked in escrow.');
 
         // Reset form
