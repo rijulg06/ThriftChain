@@ -15,7 +15,7 @@ const nextConfig = {
   },
   // Disable Turbopack for now to fix BCS bundling issue
   experimental: {
-    turbo: undefined,
+    turbo: false,
   },
 }
 
