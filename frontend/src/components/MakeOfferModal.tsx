@@ -80,6 +80,15 @@ export function MakeOfferModal({
       // Build transaction
       const tx = new Transaction();
 
+      console.log('[MakeOffer] Building transaction with:', {
+        packageId: THRIFTCHAIN_PACKAGE_ID,
+        marketplaceId: MARKETPLACE_ID,
+        itemId,
+        amountMist: amountMist.toString(),
+        message,
+        expirationHours,
+      });
+
       // Split coins to get exact payment amount
       const [paymentCoin] = tx.splitCoins(tx.gas, [tx.pure.u64(amountMist)]);
 
@@ -99,6 +108,8 @@ export function MakeOfferModal({
 
       tx.setGasBudget(100_000_000); // 0.1 SUI gas budget
 
+      console.log('[MakeOffer] Transaction built, signing...');
+
       // Sign and execute transaction
       const result = await wallet.signAndExecuteTransaction({
         transaction: tx,
@@ -106,7 +117,18 @@ export function MakeOfferModal({
 
       console.log('Offer creation result:', result);
 
-      if (result.effects?.status?.status === 'success') {
+      // Wait for transaction to be indexed and get full result
+      const txResult = await suiClient.waitForTransaction({
+        digest: result.digest,
+        options: {
+          showEffects: true,
+          showEvents: true,
+        },
+      });
+
+      console.log('Transaction indexed:', txResult);
+
+      if (txResult.effects?.status?.status === 'success') {
         toast.success('Offer created successfully! Payment locked in escrow.');
 
         // Reset form
@@ -126,7 +148,25 @@ export function MakeOfferModal({
       }
     } catch (error) {
       console.error('Error creating offer:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create offer');
+
+      // Extract detailed error message
+      let errorMessage = 'Failed to create offer';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+
+        // Check for specific Sui errors
+        if (error.message.includes('InsufficientCoinBalance')) {
+          errorMessage = 'Insufficient balance to create offer (including gas fees)';
+        } else if (error.message.includes('InvalidSharedObjectKind')) {
+          errorMessage = 'Cannot access marketplace - please contact support';
+        } else if (error.message.includes('InvalidObjectID')) {
+          errorMessage = 'Invalid item ID - item may have been removed';
+        }
+      }
+
+      toast.error(errorMessage);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
     } finally {
       setSubmitting(false);
     }
