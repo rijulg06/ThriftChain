@@ -6,8 +6,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../devnet_ids.txt"
 
-SELLER="upbeat-spodumene"
-BUYER="nostalgic-ruby"
+SELLER="nostalgic-ruby"
+BUYER="upbeat-spodumene"
 
 echo "🧪 Multi-Address Offer Test Suite"
 echo "=================================="
@@ -75,6 +75,38 @@ if [ -z "$BALANCE" ] || [ "$BALANCE" -lt 100000000 ]; then
     sleep 10
 fi
 
+# Get a gas coin to split
+BUYER_GAS=$(sui client gas --json 2>/dev/null | grep -o '"gasCoinId"[[:space:]]*:[[:space:]]*"0x[a-f0-9]\{64\}"' | head -1 | grep -o '0x[a-f0-9]\{64\}')
+
+if [ -z "$BUYER_GAS" ]; then
+    echo "❌ No gas coins available for buyer"
+    sui client switch --address "$ORIGINAL" > /dev/null 2>&1
+    exit 1
+fi
+
+# Split coin to get exact payment amount (8 SUI = 8000000000 MIST)
+SPLIT_RESULT=$(sui client split-coin \
+    --coin-id "$BUYER_GAS" \
+    --amounts 8000000000 \
+    --gas-budget 10000000 \
+    2>&1)
+
+if echo "$SPLIT_RESULT" | grep -q "Status: Success"; then
+    # Extract the new coin ID from the split result - it's in the Created Objects section
+    PAYMENT_COIN=$(echo "$SPLIT_RESULT" | grep -A 50 "Created Objects" | grep "0x" | grep -o '0x[a-f0-9]\{64\}' | head -1)
+    if [ -z "$PAYMENT_COIN" ]; then
+        echo "❌ Failed to extract payment coin ID from split result"
+        sui client switch --address "$ORIGINAL" > /dev/null 2>&1
+        exit 1
+    fi
+    echo "✅ Split coin for payment: $PAYMENT_COIN"
+else
+    echo "❌ Failed to split coin for payment"
+    echo "$SPLIT_RESULT"
+    sui client switch --address "$ORIGINAL" > /dev/null 2>&1
+    exit 1
+fi
+
 OFFER_RESULT=$(sui client call \
     --package "$MARKETPLACE_PACKAGE_ID" \
     --module "$MODULE_NAME" \
@@ -84,6 +116,7 @@ OFFER_RESULT=$(sui client call \
            "8000000000" \
            "Test offer for 8 SUI" \
            "24" \
+           "$PAYMENT_COIN" \
            "$CLOCK_OBJECT_ID" \
     --gas-budget 100000000 \
     2>&1)

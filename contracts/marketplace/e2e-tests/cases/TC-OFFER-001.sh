@@ -115,12 +115,17 @@ EXPIRES_IN_HOURS="24"
 
 echo "🚀 Executing create_offer_by_id transaction..."
 
+# Get buyer's gas coin for payment
+BUYER_GAS=$(sui client gas --json 2>/dev/null | grep -o '"gasCoinId"[[:space:]]*:[[:space:]]*"0x[a-f0-9]\{64\}"' | head -1 | grep -o '0x[a-f0-9]\{64\}')
+echo "  Using payment coin: $BUYER_GAS"
+echo ""
+
 TEMP_FILE_OFFER=$(mktemp)
 sui client call \
     --package "$MARKETPLACE_PACKAGE_ID" \
     --module "$MODULE_NAME" \
     --function "create_offer_by_id" \
-    --args "$MARKETPLACE_OBJECT_ID" "$ITEM_ID" "$OFFER_AMOUNT" "$OFFER_MESSAGE" "$EXPIRES_IN_HOURS" "$CLOCK_OBJECT_ID" \
+    --args "$MARKETPLACE_OBJECT_ID" "$ITEM_ID" "$OFFER_AMOUNT" "$OFFER_MESSAGE" "$EXPIRES_IN_HOURS" "$BUYER_GAS" "$CLOCK_OBJECT_ID" \
     --gas-budget 100000000 \
     --json > "$TEMP_FILE_OFFER" 2>&1
 
