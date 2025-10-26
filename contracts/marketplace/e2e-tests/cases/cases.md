@@ -36,6 +36,18 @@
 
 ---
 
+## 💰 **Payment & Fund Transfer (FR-022 to FR-026)**
+
+| Test Case | Description | Expected Result |
+|-----------|-------------|-----------------|
+| TC-PAYMENT-001 | Accept offer with exact payment amount | Escrow created with payment locked on-chain in held_funds |
+| TC-PAYMENT-002 | Accept offer with incorrect payment amount | Revert: "Payment must match offer amount" (error code 40) |
+| TC-PAYMENT-003 | Confirm delivery and verify seller receives funds | Funds transferred from escrow to seller's wallet address |
+| TC-PAYMENT-004 | Dispute and refund, verify buyer receives funds back | Funds transferred from escrow back to buyer's wallet address |
+| TC-PAYMENT-005 | Verify escrow balance after payment locked | Escrow object contains exact payment amount in held_funds field |
+
+---
+
 ## 🎯 **Personalized Discovery Logic (BUYER-001)**
 
 *(Smart contract only handles filtering logic / tagging; AI recommendations are off-chain validation.)*

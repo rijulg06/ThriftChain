@@ -60,9 +60,30 @@ echo ""
 echo "💰 Step 2: BUYER makes offer WITH PAYMENT (8 SUI)..."
 sui client switch --address $BUYER > /dev/null 2>&1
 
-# Get buyer's gas coin for payment
-BUYER_GAS=$(sui client gas --json 2>/dev/null | grep -o '"gasCoinId"[[:space:]]*:[[:space:]]*"0x[a-f0-9]\{64\}"' | head -1 | grep -o '0x[a-f0-9]\{64\}')
-echo "  Using payment coin: $BUYER_GAS"
+# Split a coin to get exactly 8 SUI for the offer
+OFFER_AMOUNT_MIST="8000000000"
+echo "  Splitting coin to get exactly $OFFER_AMOUNT_MIST MIST for payment..."
+
+# Get a gas coin with enough balance (need > 8 SUI)
+SOURCE_COIN=$(sui client gas --json 2>/dev/null | jq -r '.[] | select(.mistBalance > 8000000000) | .gasCoinId' | head -1)
+
+if [ -z "$SOURCE_COIN" ]; then
+    echo "❌ No coin with sufficient balance found"
+    sui client switch --address "$ORIGINAL" > /dev/null 2>&1
+    exit 1
+fi
+
+# Split the coin to get exactly 8 SUI
+SPLIT_RESULT=$(sui client split-coin --coin-id "$SOURCE_COIN" --amounts "$OFFER_AMOUNT_MIST" --gas-budget 10000000 --json 2>&1)
+BUYER_GAS=$(echo "$SPLIT_RESULT" | jq -r '.objectChanges[] | select(.objectType == "0x2::coin::Coin<0x2::sui::SUI>") | select(.type == "created") | .objectId' | head -1)
+
+if [ -z "$BUYER_GAS" ]; then
+    echo "❌ Failed to split coin"
+    sui client switch --address "$ORIGINAL" > /dev/null 2>&1
+    exit 1
+fi
+
+echo "  Using payment coin: $BUYER_GAS (exactly 8 SUI)"
 echo ""
 
 echo "🚀 Step 3: Creating offer with payment (funds locked immediately)..."

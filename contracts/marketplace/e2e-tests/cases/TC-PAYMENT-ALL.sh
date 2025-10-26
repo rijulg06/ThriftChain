@@ -2,6 +2,12 @@
 
 # TC-PAYMENT-ALL: Run all payment and fund transfer test cases
 # This suite tests the new SUI coin transfer functionality in the escrow system
+#
+# NOTE: This script automatically requests test SUI from the faucet 3 times:
+#   - Before tests 1 & 2 (for TC-PAYMENT-001 which consumes ~8 SUI)
+#   - Before test 3 (for TC-PAYMENT-003 which consumes ~5 SUI)
+#   - Before tests 4 & 5 (for TC-PAYMENT-004/005 which consume ~6-7 SUI each)
+# Total runtime: ~5-6 minutes (includes 3x 60-second faucet wait times)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -54,10 +60,42 @@ run_test() {
     sleep 2  # Brief pause between tests
 }
 
+# Request initial faucet for tests 1 and 2
+echo ""
+echo "═════════════════════════════════════════════════════════════"
+echo "🪙  Requesting initial test SUI from faucet..."
+echo "═════════════════════════════════════════════════════════════"
+echo ""
+sui client faucet 2>/dev/null || echo "⚠️  Faucet request may have failed, continuing anyway..."
+echo "Waiting 60 seconds for faucet coins to arrive..."
+sleep 60
+
 # Run all payment test cases
 run_test "TC-PAYMENT-001: Accept offer with exact payment" "TC-PAYMENT-001.sh"
 run_test "TC-PAYMENT-002: Reject incorrect payment amount" "TC-PAYMENT-002.sh"
+
+# Request faucet for test 3 (consumes ~5 SUI)
+echo ""
+echo "═════════════════════════════════════════════════════════════"
+echo "🪙  Requesting more test SUI from faucet for test 3..."
+echo "═════════════════════════════════════════════════════════════"
+echo ""
+sui client faucet 2>/dev/null || echo "⚠️  Faucet request may have failed, continuing anyway..."
+echo "Waiting 60 seconds for faucet coins to arrive..."
+sleep 60
+
 run_test "TC-PAYMENT-003: Seller receives funds on delivery" "TC-PAYMENT-003.sh"
+
+# Request faucet for tests 4 and 5 (each consumes ~6-7 SUI)
+echo ""
+echo "═════════════════════════════════════════════════════════════"
+echo "🪙  Requesting more test SUI from faucet for tests 4 & 5..."
+echo "═════════════════════════════════════════════════════════════"
+echo ""
+sui client faucet 2>/dev/null || echo "⚠️  Faucet request may have failed, continuing anyway..."
+echo "Waiting 60 seconds for faucet coins to arrive..."
+sleep 60
+
 run_test "TC-PAYMENT-004: Buyer receives refund on dispute" "TC-PAYMENT-004.sh"
 run_test "TC-PAYMENT-005: Verify escrow balance" "TC-PAYMENT-005.sh"
 

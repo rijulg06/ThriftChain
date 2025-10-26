@@ -62,7 +62,31 @@ sui client switch --address $BUYER > /dev/null 2>&1
 echo "   Expected escrow balance: 7000000000 MIST (7 SUI)"
 echo ""
 
-BUYER_GAS=$(sui client gas --json 2>/dev/null | grep -o '"gasCoinId"[[:space:]]*:[[:space:]]*"0x[a-f0-9]\{64\}"' | head -1 | grep -o '0x[a-f0-9]\{64\}')
+# Split a coin to get exactly 7 SUI for the offer
+OFFER_AMOUNT_MIST="7000000000"
+echo "  Splitting coin to get exactly $OFFER_AMOUNT_MIST MIST for payment..."
+
+# Get a gas coin with enough balance (need > 7 SUI)
+SOURCE_COIN=$(sui client gas --json 2>/dev/null | jq -r '.[] | select(.mistBalance > 7000000000) | .gasCoinId' | head -1)
+
+if [ -z "$SOURCE_COIN" ]; then
+    echo "❌ No coin with sufficient balance found"
+    sui client switch --address "$ORIGINAL" > /dev/null 2>&1
+    exit 1
+fi
+
+# Split the coin to get exactly 7 SUI
+SPLIT_RESULT=$(sui client split-coin --coin-id "$SOURCE_COIN" --amounts "$OFFER_AMOUNT_MIST" --gas-budget 10000000 --json 2>&1)
+BUYER_GAS=$(echo "$SPLIT_RESULT" | jq -r '.objectChanges[] | select(.objectType == "0x2::coin::Coin<0x2::sui::SUI>") | select(.type == "created") | .objectId' | head -1)
+
+if [ -z "$BUYER_GAS" ]; then
+    echo "❌ Failed to split coin"
+    sui client switch --address "$ORIGINAL" > /dev/null 2>&1
+    exit 1
+fi
+
+echo "  Using payment coin: $BUYER_GAS (exactly 7 SUI)"
+echo ""
 
 OFFER_RESULT=$(sui client call \
     --package "$MARKETPLACE_PACKAGE_ID" \
