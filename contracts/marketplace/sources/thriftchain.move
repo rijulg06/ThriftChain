@@ -657,6 +657,33 @@ module thriftchain::thriftchain {
 
      // ===== VIEW FUNCTIONS =====
 
+     // Add these new view functions
+
+    /// Get item by ID from the marketplace
+    public fun get_item_by_id(marketplace: &Marketplace, item_id: ID): &ThriftItem {
+        table::borrow(&marketplace.items, item_id)
+    }
+
+    /// Get item details by ID (wrapper function)
+    public fun get_item_details_by_id(marketplace: &Marketplace, item_id: ID): (String, String, u64, String, address, u8) {
+        let item = table::borrow(&marketplace.items, item_id);
+        get_item_details(item)
+    }
+
+    /// Check if item exists in marketplace
+    public fun item_exists(marketplace: &Marketplace, item_id: ID): bool {
+        table::contains(&marketplace.items, item_id)
+    }
+
+    /// Get marketplace statistics
+    public fun get_marketplace_stats(marketplace: &Marketplace): (u64, u64, u64) {
+        (
+            marketplace.item_counter,
+            marketplace.offer_counter,
+            marketplace.escrow_counter
+        )
+    }
+
     /// Get item details
     public fun get_item_details(item: &ThriftItem): (String, String, u64, String, address, u8) {
         (

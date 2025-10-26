@@ -311,12 +311,12 @@ After completing Task X.Y, proceed to **Task X.Z**: [Next task description]
   - Save all created object IDs
   - Test: Can see package on Sui Explorer (https://suiexplorer.com/?network=testnet)
 
-- [ ] **1.7** Update frontend config with deployed contract address
+- [x] **1.7** Update frontend config with deployed contract address
   - Add `NEXT_PUBLIC_THRIFTCHAIN_PACKAGE_ID=0x...` to `.env.local`
   - Update `frontend/src/lib/sui/queries.ts` to use env variable
   - Test: Import `THRIFTCHAIN_PACKAGE_ID` in frontend without errors
 
-- [ ] **1.8** Test contract functions end-to-end on testnet
+- [x] **1.8** Test contract functions end-to-end on testnet
   - Use Sui CLI to call `create_item` and verify item NFT minted
   - Use Sui CLI to call `create_offer` and verify offer created
   - Use Sui CLI to call `accept_offer` and verify escrow created

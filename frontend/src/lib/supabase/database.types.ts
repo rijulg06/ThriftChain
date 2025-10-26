@@ -48,3 +48,4 @@ export type Database = {
     Enums: Record<string, never>
   }
 }
+

@@ -1,0 +1,15 @@
+# ThriftChain Marketplace Testnet IDs
+# Generated: Sat Oct 25 19:42:16 PDT 2025
+# Transaction: AMpwsYPq9pPzTGiRiseLC3FE6Lb31vmE9A2ZggtFgBvU
+
+MARKETPLACE_PACKAGE_ID=""
+UPGRADE_CAP=""
+MARKETPLACE_OBJECT_ID=""
+OWNER_ADDRESS="611dfec4395637563ad502655de437e4b55bba45755b9a904b70ecad8c4e12c5"
+
+# Note: Update ITEMCAP_OBJECT_ID if different from previous version
+# ITEMCAP_OBJECT_ID="<item_cap_id_here>"
+
+# Generated item IDs (preserve existing items)
+ITEM_ID_1="0x7fdb7beee37d9a18eec373d394afe1a6a3e49c958b6cf62f6ff1a1e647376e5f"  # Vintage Leather Jacket
+ITEM_ID_TC_LIST_001="0x441c4099836f0287295fcc420b38ab8422c74cb88bb2c8b440c4123a2a9da455"  # TC-LIST-001 Test Item

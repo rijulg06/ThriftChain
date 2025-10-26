@@ -1,0 +1,10 @@
+MARKETPLACE_PACKAGE_ID=""
+MARKETPLACE_OBJECT_ID=""
+ITEMCAP_OBJECT_ID=""
+UPGRADE_CAP=""
+OWNER_ADDRESS=""
+
+# Generated item IDs (add new item IDs here after creating items)
+ITEM_ID_1=""  
+ITEM_ID_TC_LIST_001=""  
+
