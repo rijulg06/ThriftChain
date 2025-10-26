@@ -21,6 +21,7 @@ export interface ThriftItemObject {
   digest: string                      // Object digest
 
   // Item data (from Move struct fields)
+  // Walrus blob IDs stored on-chain for decentralized image storage
   fields: {
     id: { id: string }                // UID
     seller: string                    // address
@@ -28,8 +29,6 @@ export interface ThriftItemObject {
     description: string               // String
     price: string                     // u64 (as string to avoid precision loss)
     category: string                  // String
-    tags: string[]                    // vector<String>
-    walrus_image_ids: string[]        // vector<String> - Walrus blob IDs
     status: number                    // u8 (0=active, 1=sold, 2=cancelled)
     created_at: string                // u64 timestamp in milliseconds
     condition: string                 // String
@@ -37,8 +36,11 @@ export interface ThriftItemObject {
     size: string                      // String
     color: string                     // String
     material: string                  // String
+    walrus_image_ids: string[]        // vector<String> - Walrus blob IDs
   }
 }
+
+// ThriftItemWithImages no longer needed - images stored on-chain
 
 /**
  * Offer - Bid/offer on an item
@@ -119,7 +121,8 @@ export enum EscrowStatus {
 }
 
 /**
- * Walrus blob reference (stored in ThriftItem.walrus_image_ids)
+ * Walrus blob reference (stored in Supabase, NOT on-chain)
+ * Blob IDs are stored in Supabase to avoid BCS serialization issues
  */
 export interface WalrusBlobReference {
   blobId: string                      // Walrus blob identifier
@@ -150,7 +153,6 @@ export interface ItemQueryFilters {
   minPrice?: bigint                   // Minimum price in MIST
   maxPrice?: bigint                   // Maximum price in MIST
   status?: ItemStatus                 // Filter by status
-  tags?: string[]                     // Filter by tags (items must have ALL tags)
 }
 
 /**
@@ -180,19 +182,19 @@ export interface SearchResult {
 
 /**
  * Parameters for creating a new item listing
+ * Walrus blob IDs are stored on-chain for decentralized image storage
  */
 export interface CreateItemParams {
   title: string
   description: string
   price: bigint                       // In MIST (1 SUI = 1_000_000_000 MIST)
   category: string
-  tags: string[]
-  walrusImageIds: string[]            // Walrus blob IDs (must upload first)
   condition: string
   brand: string
   size: string
   color: string
   material: string
+  walrusImageIds: string[]            // Walrus blob IDs stored on-chain
 }
 
 /**

@@ -63,96 +63,130 @@ const DEFAULT_GAS_BUDGET = 100_000_000 // 0.1 SUI
  * @returns Transaction ready to be signed
  */
 export function buildCreateItemTransaction(params: CreateItemParams): Transaction {
-  if (!THRIFTCHAIN_PACKAGE_ID) {
-    throw new Error('NEXT_PUBLIC_THRIFTCHAIN_PACKAGE_ID not configured')
+  console.log('=== buildCreateItemTransaction called ===')
+  console.log('Environment Variables:', {
+    PACKAGE_ID: THRIFTCHAIN_PACKAGE_ID,
+    MARKETPLACE_ID: MARKETPLACE_ID,
+    ITEM_CAP_ID: ITEM_CAP_ID,
+    CLOCK_ID: CLOCK_ID
+  })
+
+  if (!THRIFTCHAIN_PACKAGE_ID || THRIFTCHAIN_PACKAGE_ID === '') {
+    throw new Error(`NEXT_PUBLIC_THRIFTCHAIN_PACKAGE_ID not configured: "${THRIFTCHAIN_PACKAGE_ID}"`)
   }
-  if (!MARKETPLACE_ID) {
-    throw new Error('NEXT_PUBLIC_MARKETPLACE_ID not configured')
+  if (!MARKETPLACE_ID || MARKETPLACE_ID === '') {
+    throw new Error(`NEXT_PUBLIC_MARKETPLACE_ID not configured: "${MARKETPLACE_ID}"`)
   }
-  if (!ITEM_CAP_ID) {
-    throw new Error('NEXT_PUBLIC_ITEM_CAP_ID not configured')
+  if (!ITEM_CAP_ID || ITEM_CAP_ID === '') {
+    throw new Error(`NEXT_PUBLIC_ITEM_CAP_ID not configured: "${ITEM_CAP_ID}"`)
   }
 
+  console.log('Creating new Transaction...')
   const tx = new Transaction()
+  console.log('Transaction created successfully')
+  console.log('tx.pure type:', typeof tx.pure)
+  console.log('tx.pure.string type:', typeof tx.pure?.string)
+  console.log('tx.object type:', typeof tx.object)
 
-  // Validate and prepare arrays
-  const tags = Array.isArray(params.tags) ? params.tags : []
-  const walrusImageIds = Array.isArray(params.walrusImageIds) ? params.walrusImageIds : []
-  
-  console.log('Creating item with tags:', tags)
-  console.log('Creating item with images:', walrusImageIds)
+  // NOTE: Images are now stored in Supabase, not on-chain
 
-  // Manually encode strings as Move String (which is vector<u8>)
-  const encodeMovieString = (str: string): Uint8Array => {
-    const bytes = new TextEncoder().encode(str)
-    // Move String format: length prefix (ULEB128) + UTF-8 bytes
-    // For simplicity, just return the UTF-8 bytes and let BCS handle length
-    return bytes
+  // Ensure all string fields have valid values (empty string for optional fields)
+  const brand = params.brand || ''
+  const size = params.size || ''
+  const color = params.color || ''
+  const material = params.material || ''
+
+  // Debug logging
+  console.log('Building transaction with params:', {
+    title: params.title,
+    description: params.description,
+    price: params.price.toString(),
+    category: params.category,
+    condition: params.condition,
+    brand,
+    size,
+    color,
+    material
+  })
+
+  // Validate all parameters before building transaction
+  if (!params.title || typeof params.title !== 'string') {
+    throw new Error(`Invalid title: ${params.title}`)
   }
-
-  // Encode each string to bytes
-  const tagsAsVecOfBytes: Uint8Array[] = tags.map(encodeMovieString)
-  const imagesAsVecOfBytes: Uint8Array[] = walrusImageIds.map(encodeMovieString)
-
-  console.log('Tags as byte arrays:', tagsAsVecOfBytes.map(b => b.length))
-  console.log('Images as byte arrays:', imagesAsVecOfBytes.map(b => b.length))
-
-  // Serialize vector<vector<u8>> manually with proper ULEB encoding
-  const encodeVectorOfVectors = (vectors: Uint8Array[]): Uint8Array => {
-    // Calculate total size
-    let totalSize = 0
-    
-    // Add size for vector length (we'll use simple length encoding)
-    const lengthBytes = new Uint8Array([vectors.length])
-    totalSize += 1
-    
-    // Add sizes for each inner vector (1 byte length + data)
-    vectors.forEach(v => {
-      totalSize += 1 + v.length
-    })
-    
-    const result = new Uint8Array(totalSize)
-    let offset = 0
-    
-    // Write outer vector length
-    result[offset++] = vectors.length
-    
-    // Write each inner vector
-    vectors.forEach(v => {
-      result[offset++] = v.length
-      result.set(v, offset)
-      offset += v.length
-    })
-    
-    return result
+  if (!params.description || typeof params.description !== 'string') {
+    throw new Error(`Invalid description: ${params.description}`)
   }
-
-  const tagsBytes = encodeVectorOfVectors(tagsAsVecOfBytes)
-  const imagesBytes = encodeVectorOfVectors(imagesAsVecOfBytes)
-
-  console.log('Final tags bytes:', tagsBytes)
-  console.log('Final images bytes:', imagesBytes)
+  if (typeof params.price !== 'bigint') {
+    throw new Error(`Invalid price: ${params.price} (type: ${typeof params.price})`)
+  }
+  if (!params.category || typeof params.category !== 'string') {
+    throw new Error(`Invalid category: ${params.category}`)
+  }
+  if (!params.condition || typeof params.condition !== 'string') {
+    throw new Error(`Invalid condition: ${params.condition}`)
+  }
 
   // Call create_item entry function
-  tx.moveCall({
-    target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::create_item`,
-    arguments: [
-      tx.object(MARKETPLACE_ID),           // marketplace: &mut Marketplace
-      tx.object(ITEM_CAP_ID),              // cap: &ItemCap
-      tx.pure.string(params.title),        // title: String
-      tx.pure.string(params.description),  // description: String
-      tx.pure.u64(params.price),           // price: u64
-      tx.pure.string(params.category),     // category: String
-      tx.pure(tagsBytes),                  // tags: vector<String>
-      tx.pure(imagesBytes),                // walrus_image_ids: vector<String>
-      tx.pure.string(params.condition),    // condition: String
-      tx.pure.string(params.brand),        // brand: String
-      tx.pure.string(params.size),         // size: String
-      tx.pure.string(params.color),        // color: String
-      tx.pure.string(params.material),     // material: String
-      tx.object(CLOCK_ID),                 // clock: &Clock
-    ],
-  })
+  // NOTE: walrus_image_ids parameter removed from smart contract
+  console.log('Building moveCall with target:', `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::create_item`)
+
+  console.log('Adding tx.object(MARKETPLACE_ID)...')
+  const marketplaceArg = tx.object(MARKETPLACE_ID)
+
+  console.log('Adding tx.object(ITEM_CAP_ID)...')
+  const itemCapArg = tx.object(ITEM_CAP_ID)
+
+  console.log('Building moveCall with BCS serialization...')
+
+  // Serialize all arguments first to catch errors early
+  try {
+    console.log('Step 1: Serialize title...')
+    const titleSerialized = bcs.string().serialize(params.title)
+    const titleBytes = titleSerialized.toBytes()
+    console.log('✓ Title serialized, bytes:', titleBytes.length)
+
+    console.log('Step 2: Serialize description...')
+    const descriptionBytes = bcs.string().serialize(params.description).toBytes()
+    console.log('✓ Description serialized')
+
+    console.log('Step 3: Serialize price...')
+    const priceBytes = bcs.u64().serialize(params.price).toBytes()
+    console.log('✓ Price serialized')
+
+    console.log('Step 4: Serialize walrusImageIds...')
+    console.log('WalrusImageIds value:', params.walrusImageIds)
+    const vectorSerialized = bcs.vector(bcs.string()).serialize(params.walrusImageIds)
+    const vectorBytes = vectorSerialized.toBytes()
+    console.log('✓ Vector serialized, bytes:', vectorBytes.length)
+
+    console.log('All arguments serialized successfully, building moveCall...')
+
+    tx.moveCall({
+      target: `${THRIFTCHAIN_PACKAGE_ID}::${MODULE_NAME}::create_item`,
+      arguments: [
+        marketplaceArg,
+        itemCapArg,
+        tx.pure(titleBytes),
+        tx.pure(descriptionBytes),
+        tx.pure(priceBytes),
+        tx.pure(bcs.string().serialize(params.category).toBytes()),
+        tx.pure(bcs.string().serialize(params.condition).toBytes()),
+        tx.pure(bcs.string().serialize(brand).toBytes()),
+        tx.pure(bcs.string().serialize(size).toBytes()),
+        tx.pure(bcs.string().serialize(color).toBytes()),
+        tx.pure(bcs.string().serialize(material).toBytes()),
+        tx.pure(vectorBytes),
+        tx.object(CLOCK_ID),
+      ],
+    })
+
+    console.log('✓ moveCall with BCS serialization complete')
+  } catch (error) {
+    console.error('BCS serialization error:', error)
+    throw error
+  }
+
+  console.log('moveCall completed successfully')
 
   tx.setGasBudget(DEFAULT_GAS_BUDGET)
 
@@ -390,12 +424,10 @@ export function buildConfirmDeliveryTransaction(params: ConfirmDeliveryParams): 
  * Build transaction to dispute an escrow
  *
  * @param escrowId - Sui object ID of the escrow
- * @param reason - Reason for dispute
  * @returns Transaction ready to be signed
  */
 export function buildDisputeEscrowTransaction(
   escrowId: string,
-  reason: string
 ): Transaction {
   if (!THRIFTCHAIN_PACKAGE_ID || !MARKETPLACE_ID) {
     throw new Error('Package or Marketplace ID not configured')

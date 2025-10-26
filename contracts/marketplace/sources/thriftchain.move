@@ -10,14 +10,13 @@ module thriftchain::thriftchain {
     // ===== STRUCTS =====
 
     /// Main item struct representing a thrift item for sale
+    /// Walrus blob IDs stored on-chain for decentralized image storage
     public struct ThriftItem has key, store {
         id: UID,
         title: String,
         description: String,
         price: u64, // Price in MIST (1 SUI = 1,000,000,000 MIST)
         category: String,
-        tags: vector<String>,
-        walrus_image_ids: vector<String>, // Blob IDs from Walrus storage
         seller: address,
         created_at: u64, // Unix timestamp
         status: u8, // 0: Active, 1: Sold, 2: Cancelled
@@ -26,6 +25,7 @@ module thriftchain::thriftchain {
         size: String,
         color: String,
         material: String,
+        walrus_image_ids: vector<String>, // Walrus blob IDs for images
     }
 
     /// Capability for managing items (only marketplace admin can create items)
@@ -210,6 +210,7 @@ module thriftchain::thriftchain {
     // ===== ITEM CREATION =====
 
     /// Create a new thrift item (requires ItemCap)
+    /// Walrus blob IDs stored on-chain for decentralized image storage
     public entry fun create_item(
         marketplace: &mut Marketplace,
         cap: &ItemCap,
@@ -217,13 +218,12 @@ module thriftchain::thriftchain {
         description: String,
         price: u64,
         category: String,
-        tags: vector<String>,
-        walrus_image_ids: vector<String>,
         condition: String,
         brand: String,
         size: String,
         color: String,
         material: String,
+        walrus_image_ids: vector<String>,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -235,15 +235,13 @@ module thriftchain::thriftchain {
         // Get current timestamp
         let current_time = clock::timestamp_ms(clock);
 
-        // Create the item
+        // Create the item with Walrus blob IDs stored on-chain
         let item = ThriftItem {
             id: object::new(ctx),
             title,
             description,
             price,
             category,
-            tags,
-            walrus_image_ids,
             seller: tx_context::sender(ctx),
             created_at: current_time,
             status: 0, // Active
@@ -252,6 +250,7 @@ module thriftchain::thriftchain {
             size,
             color,
             material,
+            walrus_image_ids,
         };
 
         // Add to marketplace
@@ -771,20 +770,14 @@ module thriftchain::thriftchain {
         )
     }
 
-    /// Get item images
-    public fun get_item_images(item: &ThriftItem): vector<String> {
-        item.walrus_image_ids
-    }
-
     /// Get item metadata
-    public fun get_item_metadata(item: &ThriftItem): (String, String, String, String, String, vector<String>) {
+    public fun get_item_metadata(item: &ThriftItem): (String, String, String, String, String) {
         (
             item.condition,
             item.brand,
             item.size,
             item.color,
-            item.material,
-            item.tags
+            item.material
         )
     }
 

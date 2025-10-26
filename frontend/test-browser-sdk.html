@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Sui SDK</title>
+</head>
+<body>
+  <h1>Testing Sui SDK in Browser</h1>
+  <div id="output"></div>
+  
+  <script type="module">
+    import { Transaction } from 'https://esm.sh/@mysten/sui@1.43.1/transactions';
+    
+    const output = document.getElementById('output');
+    
+    function log(msg) {
+      output.innerHTML += msg + '<br>';
+      console.log(msg);
+    }
+    
+    try {
+      log('Creating Transaction...');
+      const tx = new Transaction();
+      log('✓ Transaction created');
+      
+      log('Testing tx.pure.string...');
+      const result = tx.pure.string('test');
+      log('✓ tx.pure.string works');
+      
+      log('Result: ' + JSON.stringify(result));
+    } catch (e) {
+      log('✗ Error: ' + e.message);
+      log('Stack: ' + e.stack);
+    }
+  </script>
+</body>
+</html>

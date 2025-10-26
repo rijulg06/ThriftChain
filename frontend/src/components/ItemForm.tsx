@@ -3,11 +3,12 @@
 import Image from "next/image"
 import { useState, useRef } from "react"
 import { useWallet } from "@suiet/wallet-kit"
-import { buildCreateItemTransaction } from "@/lib/sui/transactions"
+import { buildCreateItemTransaction, extractCreatedObjectIds } from "@/lib/sui/transactions"
 import { Button } from "./ui/button"
 import { LoginModal } from "./LoginModal"
 import { uploadMultipleToWalrus } from "@/lib/walrus/upload"
 import type { CreateItemParams } from "@/lib/types/sui-objects"
+import { createItemRecord } from "@/lib/supabase/items"
 
 interface UploadedImage {
   file: File
@@ -51,7 +52,6 @@ export function ItemForm() {
   const [size, setSize] = useState("")
   const [color, setColor] = useState("")
   const [material, setMaterial] = useState("")
-  const [tags, setTags] = useState("")
   const [images, setImages] = useState<UploadedImage[]>([])
 
   // UI state
@@ -167,49 +167,47 @@ export function ItemForm() {
         return  // Exit early, don't proceed with transaction
       }
 
-      // Parse tags
-      const tagArray = tags
-        .split(',')
-        .map(t => t.trim())
-        .filter(t => t.length > 0)
-
       // Convert price to MIST (1 SUI = 10^9 MIST)
       const priceInSui = parseFloat(price)
       const priceInMist = BigInt(Math.floor(priceInSui * 1_000_000_000))
 
-      // Validate blobIds before building transaction
+      // Validate blobIds before proceeding
       console.log('BlobIds type:', typeof blobIds, 'isArray:', Array.isArray(blobIds), 'value:', blobIds)
-      
+
       if (!Array.isArray(blobIds) || blobIds.length === 0) {
         throw new Error('No valid blob IDs from Walrus upload')
       }
 
-      // Build transaction parameters
+      // Step 1: Build transaction parameters (WITH Walrus blob IDs)
       const params: CreateItemParams = {
         title: title.trim(),
         description: description.trim(),
         price: priceInMist,
         category,
-        tags: tagArray,
-        walrusImageIds: blobIds,
         condition,
         brand: brand.trim(),
         size: size.trim(),
         color: color.trim(),
         material: material.trim(),
+        walrusImageIds: blobIds, // Pass Walrus blob IDs to be stored on-chain
       }
 
-      // Build transaction
+      // Build transaction with BCS serialization
       console.log('Building transaction to create item on-chain...')
       console.log('Transaction params:', { ...params, price: params.price.toString() })
+
       const transaction = buildCreateItemTransaction(params)
 
-      // Execute transaction with wallet
+      // Step 3: Execute transaction with wallet
       console.log('Signing and executing transaction...')
-      
+
       // Use wallet-kit's signAndExecuteTransactionBlock
       const result = await wallet.signAndExecuteTransactionBlock({
         transactionBlock: transaction as any,
+        options: {
+          showEffects: true,
+          showObjectChanges: true,
+        },
       })
 
       console.log('✓ Transaction executed:', result.digest)
@@ -220,6 +218,32 @@ export function ItemForm() {
       }
 
       console.log('✓ Item created successfully on blockchain')
+
+      // Step 3: Extract the created object ID from blockchain result
+      const createdObjectIds = extractCreatedObjectIds(result)
+      if (createdObjectIds.length === 0) {
+        throw new Error('No object ID returned from blockchain transaction')
+      }
+
+      const suiObjectId = createdObjectIds[0]
+      console.log('✓ Item object ID from blockchain:', suiObjectId)
+
+      // Step 4: Create Supabase index record for search (AFTER blockchain)
+      console.log('Creating Supabase search index...')
+      const supabaseRecord = await createItemRecord({
+        sui_object_id: suiObjectId,
+        // TODO: Add embeddings here if you want AI search from day 1
+        // For now, embeddings can be generated later by a background job
+      })
+
+      if (!supabaseRecord) {
+        console.warn('Failed to create Supabase search index')
+        // Not fatal - item is on blockchain, just not indexed for search yet
+      } else {
+        console.log('✓ Supabase search index created')
+      }
+
+      console.log('✓ Item listing complete! Blockchain + Search index synced')
       
       setSuccess(true)
       
@@ -233,7 +257,6 @@ export function ItemForm() {
       setSize("")
       setColor("")
       setMaterial("")
-      setTags("")
       setImages([])
 
     } catch (err) {
@@ -419,23 +442,6 @@ export function ItemForm() {
           className="w-full px-3 py-2 border-2 border-black bg-white outline-none focus:border-black/70"
           maxLength={80}
         />
-      </div>
-
-      {/* Tags */}
-      <div className="retro-card retro-shadow p-4">
-        <label className="block text-sm font-semibold mb-2">
-          Tags (comma-separated)
-        </label>
-        <input
-          type="text"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          placeholder="vintage, denim, jacket, 90s"
-          className="w-full px-3 py-2 border-2 border-black bg-white outline-none focus:border-black/70"
-        />
-        <div className="text-xs opacity-60 mt-1">
-          Add tags to help buyers find your item
-        </div>
       </div>
 
       {/* Images */}

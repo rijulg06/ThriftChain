@@ -5,8 +5,9 @@
  * All marketplace data lives on-chain - this is NOT querying a centralized database.
  *
  * Architecture:
- * - Source of Truth: Sui blockchain
- * - This file: Read-only queries to fetch on-chain objects
+ * - Source of Truth: Sui blockchain (item metadata, prices, ownership)
+ * - Supabase: Walrus blob IDs (images) to avoid BCS serialization issues
+ * - This file: Read-only queries that merge blockchain + Supabase data
  * - For search: Use AI search layer which returns object IDs, then fetch here
  */
 
@@ -14,12 +15,14 @@ import type { SuiObjectResponse } from '@mysten/sui/client'
 import { suiClient } from './client'
 import type {
   ThriftItemObject,
+  ThriftItemWithImages,
   OfferObject,
   EscrowObject,
   PaginatedObjectsResponse,
   ItemQueryFilters,
 } from '../types/sui-objects'
 import { ItemStatus } from '../types/sui-objects'
+// Blob IDs now fetched from blockchain, not Supabase
 
 // ============================================
 // CONTRACT CONFIGURATION
@@ -562,6 +565,91 @@ function applyItemFilters(item: ThriftItemObject, filters?: ItemQueryFilters): b
   }
 
   return true
+}
+
+// ============================================
+// IMAGE ENRICHMENT HELPERS
+// ============================================
+
+// enrichItemWithImages removed - blob IDs now stored on-chain in item.fields.walrus_image_ids
+// enrichItemsWithImages removed - blob IDs now stored on-chain in item.fields.walrus_image_ids
+
+// ============================================
+// ITEM QUERIES WITH IMAGES
+// ============================================
+
+/**
+ * Get all items WITH images (blockchain + Supabase merged)
+ *
+ * @param filters - Optional filters for category, price range, etc.
+ * @param options - Pagination options
+ * @returns Paginated list of items with images
+ */
+export async function getAllItemsWithImages(
+  filters?: ItemQueryFilters,
+  options?: {
+    cursor?: string
+    limit?: number
+  }
+): Promise<PaginatedObjectsResponse<ThriftItemObject>> {
+  // Blob IDs now included in blockchain data - no enrichment needed
+  return getAllItems(filters, options)
+}
+
+/**
+ * Get a single item by ID (blob IDs included in blockchain data)
+ *
+ * @param objectId - Sui object ID of the item
+ * @returns Item or null if not found
+ */
+export async function getItemByIdWithImages(
+  objectId: string
+): Promise<ThriftItemObject | null> {
+  // Blob IDs now included in blockchain data - no enrichment needed
+  return getItemById(objectId)
+}
+
+/**
+ * Get items by multiple IDs (blob IDs included in blockchain data)
+ *
+ * @param objectIds - Array of Sui object IDs
+ * @returns Array of items
+ */
+export async function getItemsByIdsWithImages(
+  objectIds: string[]
+): Promise<ThriftItemObject[]> {
+  // Blob IDs now included in blockchain data - no enrichment needed
+  return getItemsByIds(objectIds)
+}
+
+/**
+ * Get seller's items (blob IDs included in blockchain data)
+ *
+ * @param sellerAddress - Wallet address of the seller
+ * @param filters - Additional filters
+ * @returns List of seller's items
+ */
+export async function getItemsBySellerWithImages(
+  sellerAddress: string,
+  filters?: Omit<ItemQueryFilters, 'seller'>
+): Promise<ThriftItemObject[]> {
+  // Blob IDs now included in blockchain data - no enrichment needed
+  return getItemsBySeller(sellerAddress, filters)
+}
+
+/**
+ * Get category items (blob IDs included in blockchain data)
+ *
+ * @param category - Category name
+ * @param filters - Additional filters
+ * @returns List of items in category
+ */
+export async function getItemsByCategoryWithImages(
+  category: string,
+  filters?: Omit<ItemQueryFilters, 'category'>
+): Promise<ThriftItemObject[]> {
+  // Blob IDs now included in blockchain data - no enrichment needed
+  return getItemsByCategory(category, filters)
 }
 
 // ============================================
