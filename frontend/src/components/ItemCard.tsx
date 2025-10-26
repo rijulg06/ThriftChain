@@ -86,7 +86,7 @@ export function ItemCard({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-yellow-200 to-pink-200">
+          <div className="w-full h-full flex items-center justify-center">
             <div className="text-center px-4">
               <div className="text-6xl mb-2">📦</div>
               <div className="text-sm font-bold opacity-60">No Image</div>
