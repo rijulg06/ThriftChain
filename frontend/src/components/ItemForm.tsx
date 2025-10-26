@@ -6,6 +6,7 @@ import { buildCreateItemTransaction } from "@/lib/sui/transactions"
 import { suiClient } from "@/lib/sui/client"
 import { Button } from "./ui/button"
 import { LoginModal } from "./LoginModal"
+import { uploadMultipleToWalrus } from "@/lib/walrus/upload"
 import type { CreateItemParams } from "@/lib/types/sui-objects"
 
 interface UploadedImage {
@@ -155,12 +156,34 @@ export function ItemForm() {
     setIsSubmitting(true)
 
     try {
-      // TEMPORARY: Skip Walrus upload and use mock blob IDs
-      console.log(`[TEMP] Skipping Walrus upload for ${images.length} images`)
-      const blobIds: string[] = images.map((_, i) => 
-        `mock_blob_${Date.now()}_${i}_${Math.random().toString(36).substring(7)}`
-      )
-      console.log('Generated mock blob IDs:', blobIds)
+      // Upload images to Walrus decentralized storage
+      console.log(`Uploading ${images.length} images to Walrus...`)
+
+      let blobIds: string[]
+      try {
+        // Upload all images and get blob IDs
+        blobIds = await uploadMultipleToWalrus(
+          images.map(img => img.file),  // Extract File objects from UploadedImage[]
+          (completed, total) => {
+            // Progress callback - logs to console
+            // Later we could show a progress bar to user
+            console.log(`Upload progress: ${completed}/${total}`)
+          }
+        )
+
+        console.log('✓ All images uploaded to Walrus:', blobIds)
+
+      } catch (uploadError) {
+        // If upload fails, show error to user and stop
+        console.error('Walrus upload failed:', uploadError)
+        setError(
+          uploadError instanceof Error
+            ? `Failed to upload images: ${uploadError.message}`
+            : 'Failed to upload images to Walrus'
+        )
+        setIsSubmitting(false)
+        return  // Exit early, don't proceed with transaction
+      }
 
       // Parse tags
       const tagArray = tags

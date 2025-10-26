@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { getWalrusBlobUrl } from "@/lib/walrus/upload"
 
 export interface ItemCardProps {
   objectId: string
@@ -48,21 +49,21 @@ export function ItemCard({
   // Get image URL (handles Walrus blob IDs and direct URLs)
   const getImageUrl = () => {
     if (walrusImageIds.length === 0) return null
-    
+
     const firstImage = walrusImageIds[0]
-    
+
     // If it's a mock blob ID, return placeholder
     if (firstImage.startsWith('mock_blob_')) {
       return null
     }
-    
+
     // If it's already a full URL (http/https), use it directly
     if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
       return firstImage
     }
-    
-    // Otherwise, treat as Walrus blob ID
-    return `https://aggregator.walrus-testnet.walrus.space/v1/${firstImage}`
+
+    // Otherwise, treat as Walrus blob ID and convert to full URL
+    return getWalrusBlobUrl(firstImage)
   }
 
   const imageUrl = getImageUrl()
