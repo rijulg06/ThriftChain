@@ -94,8 +94,8 @@ NEXT_PUBLIC_RPC_URL=https://fullnode.testnet.sui.io:443
 - **Styling**: Tailwind CSS, shadcn/ui
 - **Blockchain**: Sui Network, @mysten/sui SDK
 - **Wallet**: Suiet Wallet Kit, Enoki zkLogin
-- **Storage**: Walrus (to be integrated)
-- **Database**: Supabase (to be integrated)
+- **Storage**: Walrus
+- **Database**: Supabase
 
 ## Learn More
 
